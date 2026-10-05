@@ -1,13 +1,12 @@
 export class SecureStorage {
-  static STORAGE_KEY = 'un_shogi_savedata_v1';
-  static SECRET_SALT = 'un-shogi-salt-9874123650';
+  static KEY = 'un_shogi_save_v1';
+  static SALT = 'un-shogi-secure-salt-4820';
 
-  /**
-   * 初期セーブデータを返却
-   */
-  static createDefaultSaveData() {
+  static createDefault() {
     return {
-      playerId: crypto.randomUUID(),
+      playerId: crypto.randomUUID ? crypto.randomUUID() : 'p_' + Date.now(),
+      playerName: '観戦者',
+      rating: 1500,
       coins: 1000,
       inventory: {
         '歩兵': 18,
@@ -19,84 +18,49 @@ export class SecureStorage {
         '飛車': 2,
         '玉将': 1,
         '王将': 1,
-        '仲人': 2,
-        '獅子': 1
+        '位相': 1,
+        '重力': 2,
+        '風伯': 1
       },
-      stats: {
-        wins: 0,
-        losses: 0
-      },
-      updatedAt: Date.now()
+      stats: { wins: 0, losses: 0 }
     };
   }
 
-  /**
-   * 署名付きでセーブデータをLocalStorageに保存
-   * @param {Object} data
-   */
   static async save(data) {
-    data.updatedAt = Date.now();
     const payload = JSON.stringify(data);
-    const signature = await this.generateSignature(payload);
-
-    const packageData = {
-      payload,
-      signature
-    };
-
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(packageData));
-    return true;
+    const signature = await this.sign(payload);
+    localStorage.setItem(this.KEY, JSON.stringify({ payload, signature }));
   }
 
-  /**
-   * LocalStorageからセーブデータをロードし改ざんを検証
-   * @returns {Promise<Object>}
-   */
   static async load() {
-    const raw = localStorage.getItem(this.STORAGE_KEY);
+    const raw = localStorage.getItem(this.KEY);
     if (!raw) {
-      const defaultData = this.createDefaultSaveData();
-      await this.save(defaultData);
-      return defaultData;
+      const def = this.createDefault();
+      await this.save(def);
+      return def;
     }
 
     try {
-      const packageData = JSON.parse(raw);
-      if (!packageData.payload || !packageData.signature) {
-        console.warn('不正なセーブデータ構造を検知。データを初期化します。');
-        return this.reset();
+      const pkg = JSON.parse(raw);
+      const expected = await this.sign(pkg.payload);
+      if (expected !== pkg.signature) {
+        console.warn('改ざん検知。データを初期化します。');
+        const def = this.createDefault();
+        await this.save(def);
+        return def;
       }
-
-      const expectedSig = await this.generateSignature(packageData.payload);
-      if (expectedSig !== packageData.signature) {
-        console.warn('改ざんされたセーブデータを検知。データを初期化します。');
-        return this.reset();
-      }
-
-      return JSON.parse(packageData.payload);
-    } catch (e) {
-      console.warn('セーブデータ解析エラー。データを初期化します。', e);
-      return this.reset();
+      return JSON.parse(pkg.payload);
+    } catch {
+      const def = this.createDefault();
+      await this.save(def);
+      return def;
     }
   }
 
-  /**
-   * データを強制初期化
-   */
-  static async reset() {
-    const defaultData = this.createDefaultSaveData();
-    await this.save(defaultData);
-    return defaultData;
-  }
-
-  /**
-   * ペイロードとソルトからハッシュ署名を生成
-   */
-  static async generateSignature(payload) {
+  static async sign(payload) {
     const encoder = new TextEncoder();
-    const data = encoder.encode(payload + this.SECRET_SALT);
+    const data = encoder.encode(payload + this.SALT);
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
   }
 }

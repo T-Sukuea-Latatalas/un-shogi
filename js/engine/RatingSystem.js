@@ -17,62 +17,22 @@ export class RatingSystem {
     { name: '名人', minRate: 2200, maxRate: 9999 }
   ];
 
-  /**
-   * レーティング変動を計算
-   * @param {number} playerRating プレイヤーの現レート
-   * @param {number} opponentRating 対戦相手のレート
-   * @param {boolean} isWin 勝利時true, 敗北時false
-   * @returns {{ newRating: number, delta: number }}
-   */
   static calculate(playerRating, opponentRating, isWin) {
-    const expectedScore = 1 / (1 + Math.pow(10, (opponentRating - playerRating) / 400));
-    const actualScore = isWin ? 1 : 0;
+    const expected = 1 / (1 + Math.pow(10, (opponentRating - playerRating) / 400));
+    const actual = isWin ? 1 : 0;
+    let delta = Math.round(this.K_FACTOR * (actual - expected));
 
-    let delta = Math.round(this.K_FACTOR * (actualScore - expectedScore));
-
-    // 勝利時は最低でも+1、敗北時は最低でも-1
     if (isWin && delta <= 0) delta = 1;
     if (!isWin && delta >= 0) delta = -1;
 
     const newRating = Math.max(100, playerRating + delta);
-
-    return {
-      newRating,
-      delta
-    };
+    return { newRating, delta };
   }
 
-  /**
-   * レート数値から段級位名称を取得
-   */
   static getRankName(rating) {
     for (const rank of this.RANKS) {
-      if (rating >= rank.minRate && rating <= rank.maxRate) {
-        return rank.name;
-      }
+      if (rating >= rank.minRate && rating <= rank.maxRate) return rank.name;
     }
     return '十級';
-  }
-
-  /**
-   * 昇格または降格の発生判定
-   * @param {number} oldRating
-   * @param {number} newRating
-   * @returns {{ rankChanged: boolean, isPromoted: boolean, oldRank: string, newRank: string }}
-   */
-  static checkRankTransition(oldRating, newRating) {
-    const oldRank = this.getRankName(oldRating);
-    const newRank = this.getRankName(newRating);
-
-    if (oldRank === newRank) {
-      return { rankChanged: false, isPromoted: false, oldRank, newRank };
-    }
-
-    return {
-      rankChanged: true,
-      isPromoted: newRating > oldRating,
-      oldRank,
-      newRank
-    };
   }
 }

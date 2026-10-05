@@ -1,76 +1,77 @@
-import { GameState } from '../engine/GameState.js';
 import { RuleEngine } from '../engine/RuleEngine.js';
+import { GameState } from '../engine/GameState.js';
 
 export class SimpleAI {
   static PIECE_VALUES = {
-    '玉将': 10000, '王将': 10000, '帥操': 10000,
-    '獅子': 1500,  '大将': 1200,  '飛車': 800,
-    '角行': 700,   '金将': 400,   '銀将': 350,
-    '桂馬': 250,   '香車': 200,   '歩兵': 100
+    '玉将': 20000,
+    '王将': 20000,
+    '帥操': 20000,
+    '獅子': 2500,
+    '位相': 2000,
+    '鉤行': 1600,
+    '飛車': 1100,
+    '角行': 1000,
+    '風伯': 800,
+    '金将': 500,
+    '銀将': 450,
+    '重力': 400,
+    '桂馬': 300,
+    '香車': 280,
+    '歩兵': 100
   };
 
-  /**
-   * 最適手を非同期で選定
-   */
-  static async selectMove(gameState, aiParams = { depth: 1, randomness: 0.1 }) {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const legalMoves = this.getAllLegalMoves(gameState, GameState.TURN.GOTE);
-        if (legalMoves.length === 0) {
-          resolve(null);
-          return;
-        }
+  static async selectMove(gameState, aiParams = {}) {
+    await new Promise(resolve => setTimeout(resolve, 80));
 
-        // ランダム動作
-        if (Math.random() < aiParams.randomness) {
-          const randomIndex = Math.floor(Math.random() * legalMoves.length);
-          resolve(legalMoves[randomIndex]);
-          return;
-        }
-
-        // 評価関数による最善手の選択
-        let bestMove = legalMoves[0];
-        let maxScore = -Infinity;
-
-        for (const move of legalMoves) {
-          let score = 0;
-          const targetPiece = gameState.getPiece(move.toX, move.toY);
-          if (targetPiece) {
-            score += (this.PIECE_VALUES[targetPiece.name] || 200) * 1.5;
-          }
-
-          if (move.capturedSteps && move.capturedSteps.length > 0) {
-            for (const step of move.capturedSteps) {
-              const cap = gameState.getPiece(step.x, step.y);
-              if (cap) score += (this.PIECE_VALUES[cap.name] || 200);
-            }
-          }
-
-          // 前進を優先評価
-          score += (move.toY - move.fromY) * 5;
-
-          if (score > maxScore) {
-            maxScore = score;
-            bestMove = move;
-          }
-        }
-
-        resolve(bestMove);
-      }, 300); // 思考時間演出
-    });
-  }
-
-  static getAllLegalMoves(gameState, owner) {
-    const allMoves = [];
+    const moves = [];
     for (let y = 0; y < gameState.boardConfig.rows; y++) {
       for (let x = 0; x < gameState.boardConfig.cols; x++) {
-        const piece = gameState.getPiece(x, y);
-        if (piece && piece.owner === owner) {
-          const moves = RuleEngine.getLegalMoves(gameState, x, y);
-          allMoves.push(...moves);
+        const p = gameState.getPiece(x, y);
+        if (p && p.owner === GameState.TURN.GOTE) {
+          moves.push(...RuleEngine.getLegalMoves(gameState, x, y));
         }
       }
     }
-    return allMoves;
+
+    if (moves.length === 0) return null;
+
+    // 王を取れる手があれば即実行
+    for (const m of moves) {
+      const dest = gameState.getPiece(m.toX, m.toY);
+      if (dest && GameState.ROYAL_PIECES.has(dest.name)) return m;
+    }
+
+    let bestMove = null;
+    let maxScore = -Infinity;
+
+    for (const move of moves) {
+      let score = 0;
+      const dest = gameState.getPiece(move.toX, move.toY);
+
+      if (dest) {
+        score += (this.PIECE_VALUES[dest.name] || 150) * (aiParams.captureWeight || 1.2);
+      }
+
+      if (move.capturedSteps) {
+        for (const st of move.capturedSteps) {
+          const mid = gameState.getPiece(st.x, st.y);
+          if (mid) score += (this.PIECE_VALUES[mid.name] || 150);
+        }
+      }
+
+      // 前進へのインセンティブ
+      score += (move.toY - move.fromY) * 6;
+
+      if (score > maxScore) {
+        maxScore = score;
+        bestMove = move;
+      }
+    }
+
+    if (aiParams.randomness && Math.random() < aiParams.randomness) {
+      return moves[Math.floor(Math.random() * moves.length)];
+    }
+
+    return bestMove || moves[0];
   }
 }

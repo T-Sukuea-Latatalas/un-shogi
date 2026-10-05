@@ -1,158 +1,63 @@
 import { SecureStorage } from '../storage/SecureStorage.js';
-import { GachaSystem } from '../features/GachaSystem.js';
-import { PieceCatalog } from '../features/PieceCatalog.js';
-import { AchievementManager } from '../features/AchievementManager.js';
-import { DeckEditView } from './DeckEditView.js';
+import { RatingSystem } from '../engine/RatingSystem.js';
+import { OpponentPresets } from '../ai/OpponentPresets.js';
+import { pieceRegistry } from '../data/originalPieces.js';
+import { BoardConfig } from '../engine/BoardConfig.js';
+import { DeckValidator } from '../engine/DeckValidator.js';
 
 export class UIManager {
   constructor(gameApp) {
     this.gameApp = gameApp;
-    this.root = document.getElementById('ui-layer');
+    this.selectedTerritoryCell = null;
+    this.currentDeck = [];
     this.saveData = null;
-    this.deckEditView = null;
 
-    this.initStructure();
+    this.init();
   }
 
-  async initStructure() {
-    this.root.innerHTML = `
-      <div id="start-screen" class="interactive">
-        <div class="title-logo">否将棋</div>
-        <div class="subtitle">UN-SHOGI</div>
-        <div class="tap-indicator">画面をタップして開始</div>
-      </div>
-
-      <div id="menu-screen" class="hidden">
-        <div class="top-bar interactive">
-          <div class="player-info">
-            <div class="avatar-badge" id="avatar-icon">王</div>
-            <span class="player-name" id="player-name-display">観戦者</span>
-          </div>
-          <div class="currency-badge" id="player-coins">0 銭</div>
-        </div>
-
-        <div class="tab-content-area interactive">
-          <!-- 編成・獲得 (左) -->
-          <div id="tab-deck" class="tab-pane">
-            <div class="sub-nav-bar">
-              <button class="sub-nav-btn active" data-sub="gacha">招来</button>
-              <button class="sub-nav-btn" data-sub="edit">布陣</button>
-              <button class="sub-nav-btn" data-sub="catalog">図鑑</button>
-            </div>
-            <div id="sub-pane-container"></div>
-          </div>
-
-          <!-- 対局 (中央・初期選択) -->
-          <div id="tab-battle" class="tab-pane active">
-            <div class="section-card">
-              <div class="card-title">段位対局</div>
-              <div style="font-size:13px; color:var(--text-sub); margin-bottom:12px;">現在レート: 1500 (初段)</div>
-              <button class="btn btn-primary" id="btn-start-match" style="width:100%;">自由対戦 開始</button>
-            </div>
-
-            <div class="section-card">
-              <div class="card-title">演習相手 (CPU)</div>
-              <div class="cpu-select-list">
-                <div class="cpu-item">
-                  <div class="cpu-meta">
-                    <span class="cpu-name">木偶 (初等)</span>
-                    <span class="cpu-desc">定跡に囚われない一手</span>
-                  </div>
-                  <button class="btn" data-cpu="1">対局</button>
-                </div>
-                <div class="cpu-item">
-                  <div class="cpu-meta">
-                    <span class="cpu-name">機巧 (中等)</span>
-                    <span class="cpu-desc">盤面優位を堅実に維持</span>
-                  </div>
-                  <button class="btn" data-cpu="2">対局</button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 記録 (右) -->
-          <div id="tab-record" class="tab-pane">
-            <div class="section-card">
-              <div class="card-title">遊歴譜</div>
-              <div class="profile-field">
-                <span style="font-size:13px;">名乗り</span>
-                <input type="text" class="profile-input" id="profile-name-input" maxlength="8">
-              </div>
-              <div class="profile-field">
-                <span style="font-size:13px;">識別符</span>
-                <span id="player-id-display" style="font-size:11px; color:var(--text-sub);"></span>
-              </div>
-              <div class="profile-field">
-                <span style="font-size:13px;">戦績</span>
-                <span id="player-record-display" style="font-size:13px;">0勝 0敗</span>
-              </div>
-              <button class="btn" id="btn-save-profile" style="width:100%; margin-top:8px;">名乗りを改める</button>
-            </div>
-
-            <div class="section-card">
-              <div class="card-title">功績</div>
-              <div class="achievement-list" id="achievement-list"></div>
-            </div>
-          </div>
-        </div>
-
-        <nav class="bottom-nav interactive">
-          <button class="nav-item" data-tab="tab-deck">編成・獲得</button>
-          <button class="nav-item active" data-tab="tab-battle">対局</button>
-          <button class="nav-item" data-tab="tab-record">記録</button>
-        </nav>
-      </div>
-
-      <div id="modal-container"></div>
-    `;
-
-    this.initEvents();
+  async init() {
+    this.saveData = await SecureStorage.load();
+    this.bindEvents();
+    this.refreshHeader();
+    this.renderCpuList();
   }
 
-  initEvents() {
-    const startScreen = this.root.querySelector('#start-screen');
-    const menuScreen = this.root.querySelector('#menu-screen');
+  bindEvents() {
+    const startScreen = document.getElementById('start-screen');
+    const menuScreen = document.getElementById('menu-screen');
 
-    startScreen.addEventListener('click', async () => {
-      this.saveData = await SecureStorage.load();
-      this.refreshHeader();
+    startScreen.addEventListener('click', () => {
       startScreen.classList.add('hidden');
       menuScreen.classList.remove('hidden');
     });
 
-    // メインタブ切り替え
-    const navItems = this.root.querySelectorAll('.nav-item');
+    // タブ切り替え
+    const navItems = document.querySelectorAll('.nav-item');
     navItems.forEach(btn => {
       btn.addEventListener('click', () => {
         navItems.forEach(n => n.classList.remove('active'));
         btn.classList.add('active');
 
-        const targetId = btn.dataset.tab;
-        this.root.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-        this.root.querySelector(`#${targetId}`).classList.add('active');
+        const tid = btn.dataset.tab;
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+        document.getElementById(tid).classList.add('active');
 
-        if (targetId === 'tab-deck') {
-          this.switchSubTab('gacha');
-        } else if (targetId === 'tab-record') {
-          this.refreshRecordTab();
-        }
+        if (tid === 'tab-deck') this.renderSubTab('edit');
       });
     });
 
-    // サブタブ切り替え (編成・獲得)
-    const subNavBtns = this.root.querySelectorAll('.sub-nav-btn');
-    subNavBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        subNavBtns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        this.switchSubTab(btn.dataset.sub);
+    // サブタブ切り替え
+    document.querySelectorAll('.sub-nav-btn').forEach(b => {
+      b.addEventListener('click', () => {
+        document.querySelectorAll('.sub-nav-btn').forEach(btn => btn.classList.remove('active'));
+        b.classList.add('active');
+        this.renderSubTab(b.dataset.sub);
       });
     });
 
     // プロフィール保存
-    this.root.querySelector('#btn-save-profile').addEventListener('click', async () => {
-      const input = this.root.querySelector('#profile-name-input');
+    document.getElementById('btn-save-profile').addEventListener('click', async () => {
+      const input = document.getElementById('profile-name-input');
       if (input.value.trim()) {
         this.saveData.playerName = input.value.trim();
         await SecureStorage.save(this.saveData);
@@ -161,193 +66,169 @@ export class UIManager {
     });
 
     // 自由対戦開始
-    this.root.querySelector('#btn-start-match').addEventListener('click', () => {
+    document.getElementById('btn-start-match').addEventListener('click', () => {
       menuScreen.classList.add('hidden');
-      if (this.gameApp && this.gameApp.startMatch) {
-        this.gameApp.startMatch(this.saveData.customDeck);
-      }
+      this.gameApp.startMatch(this.saveData.customDeck, 'sugai_1200');
     });
   }
 
   refreshHeader() {
     if (!this.saveData) return;
-    this.root.querySelector('#player-name-display').textContent = this.saveData.playerName || '観戦者';
-    this.root.querySelector('#player-coins').textContent = `${this.saveData.coins} 銭`;
-  }
+    document.getElementById('player-name-display').textContent = this.saveData.playerName || '観戦者';
+    document.getElementById('player-coins').textContent = `${this.saveData.coins || 0} 銭`;
 
-  switchSubTab(subKey) {
-    const container = this.root.querySelector('#sub-pane-container');
-    container.innerHTML = '';
+    const rankName = RatingSystem.getRankName(this.saveData.rating || 1500);
+    const rateEl = document.getElementById('player-rate-info');
+    if (rateEl) {
+      rateEl.textContent = `現在レート: ${this.saveData.rating || 1500} (${rankName})`;
+    }
 
-    if (subKey === 'gacha') {
-      this.renderGachaPanel(container);
-    } else if (subKey === 'edit') {
-      this.deckEditView = new DeckEditView(container, (testDeck) => {
-        this.root.querySelector('#menu-screen').classList.add('hidden');
-        if (this.gameApp && this.gameApp.startMatch) {
-          this.gameApp.startMatch(testDeck);
-        }
-      });
-      this.deckEditView.render();
-    } else if (subKey === 'catalog') {
-      this.renderCatalogPanel(container);
+    const idEl = document.getElementById('player-id-display');
+    if (idEl) idEl.textContent = (this.saveData.playerId || '').slice(0, 8);
+
+    const recEl = document.getElementById('player-record-display');
+    if (recEl) {
+      const st = this.saveData.stats || { wins: 0, losses: 0 };
+      recEl.textContent = `${st.wins}勝 ${st.losses}敗`;
     }
   }
 
-  renderGachaPanel(container) {
-    container.innerHTML = `
-      <div class="gacha-panel">
-        <div class="gacha-banner">
-          <div class="gacha-title">百獣招来 獅子祭</div>
-          <div style="font-size:12px; color:var(--text-sub); margin-bottom:16px;">
-            限定提供: 獅子・獅鷹・大将
-          </div>
-          <div class="gacha-actions">
-            <button class="btn" id="btn-roll-single">単発 (100銭)</button>
-            <button class="btn btn-primary" id="btn-roll-ten">十連 (1000銭)</button>
-          </div>
+  renderCpuList() {
+    const listEl = document.getElementById('cpu-opponent-list');
+    listEl.innerHTML = '';
+
+    for (const opp of OpponentPresets) {
+      const row = document.createElement('div');
+      row.className = 'cpu-item';
+      row.innerHTML = `
+        <div class="cpu-meta">
+          <span class="cpu-name">${opp.name} (${opp.rating})</span>
+          <span class="cpu-desc">${opp.title}</span>
         </div>
+        <button class="btn btn-primary" data-opp="${opp.id}">対局</button>
+      `;
+
+      row.querySelector('button').addEventListener('click', () => {
+        document.getElementById('menu-screen').classList.add('hidden');
+        this.gameApp.startMatch(this.saveData.customDeck, opp.id);
+      });
+
+      listEl.appendChild(row);
+    }
+  }
+
+  renderSubTab(subKey) {
+    const c = document.getElementById('sub-pane-container');
+    c.innerHTML = '';
+
+    if (subKey === 'edit') {
+      this.renderDeckEditor(c);
+    } else if (subKey === 'catalog') {
+      this.renderCatalog(c);
+    }
+  }
+
+  renderDeckEditor(container) {
+    const standardBoard = BoardConfig.create(BoardConfig.PRESETS.STANDARD_9X9);
+    this.currentDeck = this.saveData.customDeck || DeckValidator.getSamplePreset(standardBoard, 0);
+
+    container.innerHTML = `
+      <div class="deck-editor">
+        <div class="card-title">自陣配置 (手前3段)</div>
+        <div class="territory-grid" id="territory-grid"></div>
+        <div class="card-title">所持駒一覧</div>
+        <div class="inventory-tray" id="inventory-tray"></div>
+        <button class="btn btn-primary" id="btn-save-deck" style="width:100%; margin-top:8px;">布陣を保存</button>
+        <div id="deck-msg" style="font-size:12px; min-height:16px; margin-top:4px;"></div>
       </div>
     `;
 
-    container.querySelector('#btn-roll-single').addEventListener('click', async () => {
-      const res = await GachaSystem.rollSingle('SHI_SHI_FEST');
-      if (!res.success) {
-        alert(res.reason);
+    const gridEl = container.querySelector('#territory-grid');
+    const trayEl = container.querySelector('#inventory-tray');
+
+    const updateGrid = () => {
+      gridEl.innerHTML = '';
+      for (let y = 6; y <= 8; y++) {
+        for (let x = 0; x < 9; x++) {
+          const cell = document.createElement('div');
+          cell.className = 'territory-cell';
+          const p = this.currentDeck.find(item => item.x === x && item.y === y);
+          if (p) cell.textContent = p.pieceName.slice(0, 2);
+
+          cell.addEventListener('click', () => {
+            if (this.selectedTerritoryCell && this.selectedTerritoryCell.x === x && this.selectedTerritoryCell.y === y) {
+              this.currentDeck = this.currentDeck.filter(item => !(item.x === x && item.y === y));
+              this.selectedTerritoryCell = null;
+            } else {
+              this.selectedTerritoryCell = { x, y };
+            }
+            updateGrid();
+          });
+
+          if (this.selectedTerritoryCell && this.selectedTerritoryCell.x === x && this.selectedTerritoryCell.y === y) {
+            cell.classList.add('selected');
+          }
+
+          gridEl.appendChild(cell);
+        }
+      }
+    };
+
+    trayEl.innerHTML = '';
+    for (const [name, count] of Object.entries(this.saveData.inventory || {})) {
+      if (count <= 0) continue;
+      const pEl = document.createElement('div');
+      pEl.className = 'tray-piece';
+      pEl.innerHTML = `<div>${name.slice(0, 2)}</div><div style="font-size:10px; color:var(--text-sub);">x${count}</div>`;
+
+      pEl.addEventListener('click', () => {
+        if (!this.selectedTerritoryCell) return;
+        this.currentDeck = this.currentDeck.filter(
+          item => !(item.x === this.selectedTerritoryCell.x && item.y === this.selectedTerritoryCell.y)
+        );
+        this.currentDeck.push({
+          pieceName: name,
+          x: this.selectedTerritoryCell.x,
+          y: this.selectedTerritoryCell.y
+        });
+        this.selectedTerritoryCell = null;
+        updateGrid();
+      });
+
+      trayEl.appendChild(pEl);
+    }
+
+    container.querySelector('#btn-save-deck').addEventListener('click', async () => {
+      const v = DeckValidator.validate(this.currentDeck, standardBoard, 0);
+      const msgEl = container.querySelector('#deck-msg');
+      if (!v.valid) {
+        msgEl.style.color = 'var(--accent-red)';
+        msgEl.textContent = v.error;
         return;
       }
-      this.refreshHeader();
-      this.showGachaResultModal(res.results);
+      this.saveData.customDeck = this.currentDeck;
+      await SecureStorage.save(this.saveData);
+      msgEl.style.color = 'var(--accent-gold)';
+      msgEl.textContent = '布陣を保存しました';
     });
 
-    container.querySelector('#btn-roll-ten').addEventListener('click', async () => {
-      const res = await GachaSystem.rollTen('SHI_SHI_FEST');
-      if (!res.success) {
-        alert(res.reason);
-        return;
-      }
-      this.refreshHeader();
-      this.showGachaResultModal(res.results);
-    });
+    updateGrid();
   }
 
-  renderCatalogPanel(container) {
-    const catalog = PieceCatalog.getCatalogWithOwnership(this.saveData.inventory || {});
+  renderCatalog(container) {
     const grid = document.createElement('div');
     grid.className = 'catalog-grid';
 
-    for (const item of catalog) {
+    for (const [name, def] of pieceRegistry.entries()) {
       const card = document.createElement('div');
-      card.className = `catalog-card ${item.isOwned ? '' : 'unowned'}`;
+      card.className = 'catalog-card';
       card.innerHTML = `
-        <div class="catalog-card-name">${item.name.slice(0, 2)}</div>
-        <div class="catalog-card-rarity">${item.rarity}</div>
+        <div class="catalog-card-name">${name.slice(0, 2)}</div>
+        <div class="catalog-card-rarity">${def.rarity}</div>
       `;
-      card.addEventListener('click', () => {
-        this.showPieceDetailModal(item);
-      });
       grid.appendChild(card);
     }
 
     container.appendChild(grid);
-  }
-
-  async refreshRecordTab() {
-    this.saveData = await SecureStorage.load();
-    this.root.querySelector('#profile-name-input').value = this.saveData.playerName || '観戦者';
-    this.root.querySelector('#player-id-display').textContent = this.saveData.playerId.slice(0, 8);
-    this.root.querySelector('#player-record-display').textContent =
-      `${this.saveData.stats.wins || 0}勝 ${this.saveData.stats.losses || 0}敗`;
-
-    const listEl = this.root.querySelector('#achievement-list');
-    listEl.innerHTML = '';
-
-    const list = await AchievementManager.getAllStatus();
-    for (const ach of list) {
-      const item = document.createElement('div');
-      item.className = 'achievement-item';
-
-      let actionHtml = '';
-      if (ach.isClaimed) {
-        actionHtml = '<span style="font-size:12px; color:var(--text-sub);">受領済</span>';
-      } else if (ach.isAccomplished) {
-        actionHtml = `<button class="btn btn-primary btn-claim" data-id="${ach.id}" style="padding:4px 10px; font-size:11px;">受取</button>`;
-      } else {
-        actionHtml = '<span style="font-size:12px; color:var(--border-color);">未達成</span>';
-      }
-
-      item.innerHTML = `
-        <div class="achieve-meta">
-          <span class="achieve-title">${ach.title}</span>
-          <span class="achieve-reward">${ach.desc} (+${ach.rewardCoins}銭)</span>
-        </div>
-        <div>${actionHtml}</div>
-      `;
-
-      listEl.appendChild(item);
-    }
-
-    listEl.querySelectorAll('.btn-claim').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const id = btn.dataset.id;
-        const res = await AchievementManager.claim(id);
-        if (res.success) {
-          this.refreshHeader();
-          this.refreshRecordTab();
-        }
-      });
-    });
-  }
-
-  showGachaResultModal(pieces) {
-    const modalContainer = this.root.querySelector('#modal-container');
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay interactive';
-
-    const cardHtml = pieces.map(p => `
-      <div style="background:#222228; border:1px solid #3a3a42; border-radius:4px; padding:10px; text-align:center;">
-        <div style="font-family:var(--font-serif); font-size:16px;">${p.name}</div>
-        <div style="font-size:11px; color:var(--accent-gold);">${p.rarity}</div>
-      </div>
-    `).join('');
-
-    overlay.innerHTML = `
-      <div class="modal-card">
-        <div class="card-title">招来結果</div>
-        <div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:6px;">
-          ${cardHtml}
-        </div>
-        <button class="btn btn-primary" id="btn-close-modal">確認</button>
-      </div>
-    `;
-
-    overlay.querySelector('#btn-close-modal').addEventListener('click', () => {
-      overlay.remove();
-    });
-
-    modalContainer.appendChild(overlay);
-  }
-
-  showPieceDetailModal(item) {
-    const modalContainer = this.root.querySelector('#modal-container');
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay interactive';
-
-    overlay.innerHTML = `
-      <div class="modal-card">
-        <div class="card-title">${item.name} (${item.rarity})</div>
-        <div style="font-size:13px; line-height:1.6;">
-          <div>成り先: ${item.promotesTo || '成らず'}</div>
-          <div>所持数: ${item.ownedCount}</div>
-        </div>
-        <button class="btn" id="btn-close-detail">閉じる</button>
-      </div>
-    `;
-
-    overlay.querySelector('#btn-close-detail').addEventListener('click', () => {
-      overlay.remove();
-    });
-
-    modalContainer.appendChild(overlay);
   }
 }

@@ -1,63 +1,103 @@
-import { MoveNotationParser } from '../engine/MoveNotationParser.js';
-import { taikyokuPieces } from './taikyokuPieces.js';
+export const pieceRegistry = new Map();
 
-export const ORIGINAL_PIECES = [
-  {
-    name: "歪曲",
-    promotedName: "特異点",
-    notation: "DIAG1, CROSS1",
-    description: "盤面を歪める駒。跳躍移動を行う。",
-    special: "TELEPORT",
-    cost: 5,
-    rarity: "UR"
-  },
-  {
-    name: "天台",
-    promotedName: "天動",
-    notation: "F2L1!, F2R1!, B2L1!, B2R1!",
-    description: "高機動駒。八方向に桂馬跳躍を行う。",
-    special: "IGNORE_HEIGHT",
-    cost: 4,
-    rarity: "SR"
-  },
-  {
-    name: "衝車",
-    promotedName: "破城槌",
-    notation: "F*, L1, R1, B1",
-    description: "前方へ突進する兵器。",
-    special: "PUSH_FORWARD",
-    cost: 3,
-    rarity: "R"
-  },
-  {
-    name: "因果",
-    promotedName: "輪廻",
-    notation: "ALL1",
-    description: "全方位に1マス動く。",
-    special: "MIMIC_LAST_MOVE",
-    cost: 4,
-    rarity: "SR"
-  },
-  {
-    name: "虚砲",
-    promotedName: "虚神",
-    notation: "CROSS2!",
-    description: "十字2マスへ飛び越え移動する。",
-    special: "REMOTE_CAPTURE",
-    cost: 5,
-    rarity: "UR"
-  }
-];
-
-// taikyokuPieces の Map にオリジナル駒を自動登録
-for (const p of ORIGINAL_PIECES) {
-  const dslLine = `${p.name} -> ${p.promotedName}: ${p.notation}`;
-  const parsed = MoveNotationParser.parseLine(dslLine);
-  if (parsed) {
-    taikyokuPieces.set(parsed.name, parsed);
-  }
+/**
+ * 駒移動定義の登録
+ */
+function registerPiece(name, promotesTo, rules, rarity = 'N') {
+  pieceRegistry.set(name, {
+    name,
+    promotesTo,
+    rules,
+    rarity
+  });
 }
 
-export function getOriginalPieceByName(name) {
-  return ORIGINAL_PIECES.find(p => p.name === name || p.promotedName === name) || null;
-}
+// 基本駒
+registerPiece('歩兵', '金将', [{ dx: 0, dy: -1, steps: 1, isSlide: false, canJump: false }], 'N');
+registerPiece('香車', '白駒', [{ dx: 0, dy: -1, steps: Infinity, isSlide: true, canJump: false }], 'N');
+registerPiece('桂馬', '金将', [{ dx: -1, dy: -2, steps: 1, isSlide: false, canJump: true }, { dx: 1, dy: -2, steps: 1, isSlide: false, canJump: true }], 'N');
+registerPiece('銀将', '近王', [
+  { dx: 0, dy: -1, steps: 1, isSlide: false, canJump: false },
+  { dx: -1, dy: -1, steps: 1, isSlide: false, canJump: false },
+  { dx: 1, dy: -1, steps: 1, isSlide: false, canJump: false },
+  { dx: -1, dy: 1, steps: 1, isSlide: false, canJump: false },
+  { dx: 1, dy: 1, steps: 1, isSlide: false, canJump: false }
+], 'N');
+registerPiece('金将', '近王', [
+  { dx: 0, dy: -1, steps: 1, isSlide: false, canJump: false },
+  { dx: 0, dy: 1, steps: 1, isSlide: false, canJump: false },
+  { dx: -1, dy: 0, steps: 1, isSlide: false, canJump: false },
+  { dx: 1, dy: 0, steps: 1, isSlide: false, canJump: false },
+  { dx: -1, dy: -1, steps: 1, isSlide: false, canJump: false },
+  { dx: 1, dy: -1, steps: 1, isSlide: false, canJump: false }
+], 'N');
+registerPiece('角行', '龍馬', [
+  { dx: -1, dy: -1, steps: Infinity, isSlide: true, canJump: false },
+  { dx: 1, dy: -1, steps: Infinity, isSlide: true, canJump: false },
+  { dx: -1, dy: 1, steps: Infinity, isSlide: true, canJump: false },
+  { dx: 1, dy: 1, steps: Infinity, isSlide: true, canJump: false }
+], 'SR');
+registerPiece('飛車', '龍王', [
+  { dx: 0, dy: -1, steps: Infinity, isSlide: true, canJump: false },
+  { dx: 0, dy: 1, steps: Infinity, isSlide: true, canJump: false },
+  { dx: -1, dy: 0, steps: Infinity, isSlide: true, canJump: false },
+  { dx: 1, dy: 0, steps: Infinity, isSlide: true, canJump: false }
+], 'SR');
+registerPiece('玉将', null, [
+  { dx: 0, dy: -1, steps: 1, isSlide: false, canJump: false },
+  { dx: 0, dy: 1, steps: 1, isSlide: false, canJump: false },
+  { dx: -1, dy: 0, steps: 1, isSlide: false, canJump: false },
+  { dx: 1, dy: 0, steps: 1, isSlide: false, canJump: false },
+  { dx: -1, dy: -1, steps: 1, isSlide: false, canJump: false },
+  { dx: 1, dy: -1, steps: 1, isSlide: false, canJump: false },
+  { dx: -1, dy: 1, steps: 1, isSlide: false, canJump: false },
+  { dx: 1, dy: 1, steps: 1, isSlide: false, canJump: false }
+], 'UR');
+registerPiece('王将', null, [
+  { dx: 0, dy: -1, steps: 1, isSlide: false, canJump: false },
+  { dx: 0, dy: 1, steps: 1, isSlide: false, canJump: false },
+  { dx: -1, dy: 0, steps: 1, isSlide: false, canJump: false },
+  { dx: 1, dy: 0, steps: 1, isSlide: false, canJump: false },
+  { dx: -1, dy: -1, steps: 1, isSlide: false, canJump: false },
+  { dx: 1, dy: -1, steps: 1, isSlide: false, canJump: false },
+  { dx: -1, dy: 1, steps: 1, isSlide: false, canJump: false },
+  { dx: 1, dy: 1, steps: 1, isSlide: false, canJump: false }
+], 'UR');
+
+// 大局将棋・特殊駒
+registerPiece('獅子', '奮迅', [{ dx: 0, dy: 0, steps: 2, isSlide: false, canJump: true, multiStep: 2 }], 'UR');
+registerPiece('鉤行', '鶴唳', [{ dx: 0, dy: 0, steps: Infinity, isSlide: true, canJump: false, isHook: true }], 'SR');
+
+// 否将棋オリジナル変則駒
+// 位相: 障害物を無視して広範囲に跳躍
+registerPiece('位相', '転移', [
+  { dx: 0, dy: -3, steps: 1, isSlide: false, canJump: true },
+  { dx: 0, dy: 3, steps: 1, isSlide: false, canJump: true },
+  { dx: -3, dy: 0, steps: 1, isSlide: false, canJump: true },
+  { dx: 3, dy: 0, steps: 1, isSlide: false, canJump: true },
+  { dx: -2, dy: -2, steps: 1, isSlide: false, canJump: true },
+  { dx: 2, dy: -2, steps: 1, isSlide: false, canJump: true },
+  { dx: -2, dy: 2, steps: 1, isSlide: false, canJump: true },
+  { dx: 2, dy: 2, steps: 1, isSlide: false, canJump: true }
+], 'UR');
+
+// 重力: 周囲1マスの段差を完全に無視して跳躍し、直線上2マス先へ跳ぶ
+registerPiece('重力', '崩壊', [
+  { dx: 0, dy: -1, steps: 1, isSlide: false, canJump: true },
+  { dx: 0, dy: 1, steps: 1, isSlide: false, canJump: true },
+  { dx: -1, dy: 0, steps: 1, isSlide: false, canJump: true },
+  { dx: 1, dy: 0, steps: 1, isSlide: false, canJump: true },
+  { dx: 0, dy: -2, steps: 1, isSlide: false, canJump: true },
+  { dx: 0, dy: 2, steps: 1, isSlide: false, canJump: true },
+  { dx: -2, dy: 0, steps: 1, isSlide: false, canJump: true },
+  { dx: 2, dy: 0, steps: 1, isSlide: false, canJump: true }
+], 'R');
+
+// 風伯: 斜め前方にスライドし、横と後ろをカバー
+registerPiece('風伯', '嵐神', [
+  { dx: -1, dy: -1, steps: Infinity, isSlide: true, canJump: false },
+  { dx: 1, dy: -1, steps: Infinity, isSlide: true, canJump: false },
+  { dx: -1, dy: 0, steps: 1, isSlide: false, canJump: false },
+  { dx: 1, dy: 0, steps: 1, isSlide: false, canJump: false },
+  { dx: 0, dy: 1, steps: 1, isSlide: false, canJump: false }
+], 'SR');

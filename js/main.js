@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import './data/originalPieces.js'; // オリジナル駒の読み込み・登録
+import './data/originalPieces.js';
 import { BoardConfig } from './engine/BoardConfig.js';
 import { GameState } from './engine/GameState.js';
 import { RuleEngine } from './engine/RuleEngine.js';
@@ -36,9 +36,6 @@ export class UnShogiApp {
     this.sceneManager.startRenderLoop();
   }
 
-  /**
-   * 対局のセットアップと開始
-   */
   async startMatch(playerDeck = null, opponentId = 'sugai_1200') {
     this.currentOpponent = OpponentPresets.find(o => o.id === opponentId) || OpponentPresets[0];
     this.boardConfig = BoardConfig.create(this.currentOpponent.boardPresetId);
@@ -47,18 +44,13 @@ export class UnShogiApp {
     this.clearBoardScene();
     this.sceneManager.setupCamera(this.boardConfig.cols, this.boardConfig.rows);
 
-    // 盤面メッシュの再生成
     const { boardGroup, cellMeshes } = BoardMeshBuilder.build(this.boardConfig);
     this.boardGroup = boardGroup;
     this.sceneManager.scene.add(this.boardGroup);
     this.sceneManager.setInteractiveMeshes(cellMeshes);
 
-    // プレイヤー陣営の初期配置
     const defaultDeck = DeckValidator.getSamplePreset(this.boardConfig, GameState.TURN.SENTE);
-    const resolvedPlayerDeck = playerDeck || defaultDeck;
-    this.spawnDeck(resolvedPlayerDeck, GameState.TURN.SENTE);
-
-    // 対戦相手陣営の初期配置
+    this.spawnDeck(playerDeck || defaultDeck, GameState.TURN.SENTE);
     this.spawnDeck(this.currentOpponent.deck, GameState.TURN.GOTE);
   }
 
@@ -75,8 +67,8 @@ export class UnShogiApp {
       this.gameState.setPiece(item.x, item.y, pieceData);
 
       const mesh = PieceMeshBuilder.createPieceMesh(item.pieceName, owner, false);
-      const worldPos = this.gridToWorldPosition(item.x, item.y);
-      mesh.position.set(worldPos.x, worldPos.y, worldPos.z);
+      const pos = this.gridToWorldPosition(item.x, item.y);
+      mesh.position.set(pos.x, pos.y, pos.z);
 
       this.sceneManager.scene.add(mesh);
       this.pieceMeshes.set(`${item.x},${item.y}`, mesh);
@@ -85,14 +77,14 @@ export class UnShogiApp {
 
   gridToWorldPosition(x, y) {
     const size = BoardMeshBuilder.CELL_SIZE;
-    const offsetX = ((this.boardConfig.cols - 1) * size) / 2;
-    const offsetZ = ((this.boardConfig.rows - 1) * size) / 2;
-    const cellHeight = BoardMeshBuilder.BASE_HEIGHT + BoardConfig.getHeight(this.boardConfig, x, y);
+    const ox = ((this.boardConfig.cols - 1) * size) / 2;
+    const oz = ((this.boardConfig.rows - 1) * size) / 2;
+    const cellH = BoardMeshBuilder.BASE_HEIGHT + BoardConfig.getHeight(this.boardConfig, x, y);
 
     return {
-      x: x * size - offsetX,
-      y: cellHeight + 0.14,
-      z: y * size - offsetZ
+      x: x * size - ox,
+      y: cellH + 0.14,
+      z: y * size - oz
     };
   }
 
@@ -100,7 +92,6 @@ export class UnShogiApp {
     if (this.isAiThinking || this.gameState.winner !== null) return;
     if (this.gameState.currentTurn !== GameState.TURN.SENTE) return;
 
-    // 移動先の決定
     if (this.selectedCoord) {
       const move = this.currentLegalMoves.find(m => m.toX === x && m.toY === y);
       if (move) {
@@ -114,7 +105,6 @@ export class UnShogiApp {
       }
     }
 
-    // 自軍駒の選択
     const piece = this.gameState.getPiece(x, y);
     if (piece && piece.owner === GameState.TURN.SENTE) {
       this.selectedCoord = { x, y };
@@ -129,21 +119,19 @@ export class UnShogiApp {
     const fromKey = `${move.fromX},${move.fromY}`;
     const toKey = `${move.toX},${move.toY}`;
 
-    // 移動先の敵駒メッシュ消去
     if (!move.isIgai && this.pieceMeshes.has(toKey)) {
       const capMesh = this.pieceMeshes.get(toKey);
       this.sceneManager.scene.remove(capMesh);
       this.pieceMeshes.delete(toKey);
     }
 
-    // マルチステップでの捕獲処理
     if (move.capturedSteps) {
-      for (const step of move.capturedSteps) {
-        const stepKey = `${step.x},${step.y}`;
-        if (this.pieceMeshes.has(stepKey)) {
-          const capMesh = this.pieceMeshes.get(stepKey);
-          this.sceneManager.scene.remove(capMesh);
-          this.pieceMeshes.delete(stepKey);
+      for (const st of move.capturedSteps) {
+        const k = `${st.x},${st.y}`;
+        if (this.pieceMeshes.has(k)) {
+          const m = this.pieceMeshes.get(k);
+          this.sceneManager.scene.remove(m);
+          this.pieceMeshes.delete(k);
         }
       }
     }
@@ -153,29 +141,25 @@ export class UnShogiApp {
 
     const destX = move.isIgai ? move.fromX : move.toX;
     const destY = move.isIgai ? move.fromY : move.toY;
-    const worldPos = this.gridToWorldPosition(destX, destY);
+    const pos = this.gridToWorldPosition(destX, destY);
 
-    mesh.position.set(worldPos.x, worldPos.y, worldPos.z);
+    mesh.position.set(pos.x, pos.y, pos.z);
     this.pieceMeshes.set(`${destX},${destY}`, mesh);
 
-    const result = this.gameState.applyMove(move);
-
-    if (result.winner !== null) {
-      this.handleGameOver(result.winner);
+    const res = this.gameState.applyMove(move);
+    if (res.winner !== null) {
+      this.handleGameOver(res.winner);
     }
   }
 
   async triggerAiTurn() {
     this.isAiThinking = true;
-
     const move = await SimpleAI.selectMove(this.gameState, this.currentOpponent.aiParams);
     if (move) {
       this.executeMove(move);
     } else {
-      // 合法手が存在しない場合は投了扱い
       this.handleGameOver(GameState.TURN.SENTE);
     }
-
     this.isAiThinking = false;
   }
 
@@ -198,7 +182,6 @@ export class UnShogiApp {
     }
 
     await SecureStorage.save(saveData);
-
     this.showGameOverModal(isPlayerWin, delta, newRating);
   }
 
@@ -208,12 +191,12 @@ export class UnShogiApp {
     overlay.className = 'modal-overlay interactive';
 
     const rankName = RatingSystem.getRankName(newRating);
-    const outcomeTitle = isPlayerWin ? '勝 礼' : '敗 礼';
-    const outcomeColor = isPlayerWin ? 'var(--accent-gold)' : 'var(--text-sub)';
+    const title = isPlayerWin ? '勝 礼' : '敗 礼';
+    const color = isPlayerWin ? 'var(--accent-gold)' : 'var(--text-sub)';
 
     overlay.innerHTML = `
       <div class="modal-card" style="text-align:center;">
-        <div style="font-family:var(--font-serif); font-size:32px; color:${outcomeColor};">${outcomeTitle}</div>
+        <div style="font-family:var(--font-serif); font-size:32px; color:${color};">${title}</div>
         <div style="font-size:14px; margin:8px 0;">
           変動: ${rateDelta >= 0 ? '+' : ''}${rateDelta} (新レート: ${newRating})
         </div>
@@ -267,8 +250,8 @@ export class UnShogiApp {
 
     this.addHighlightMesh(this.selectedCoord.x, this.selectedCoord.y, 0xc5a059, 0.45);
 
-    for (const move of this.currentLegalMoves) {
-      this.addHighlightMesh(move.toX, move.toY, 0x5a9e78, 0.55);
+    for (const m of this.currentLegalMoves) {
+      this.addHighlightMesh(m.toX, m.toY, 0x5a9e78, 0.55);
     }
   }
 
@@ -280,13 +263,13 @@ export class UnShogiApp {
     const mat = new THREE.MeshBasicMaterial({
       color: colorHex,
       transparent: true,
-      opacity: opacity,
+      opacity,
       depthWrite: false
     });
 
     const mesh = new THREE.Mesh(geo, mat);
-    const worldPos = this.gridToWorldPosition(x, y);
-    mesh.position.set(worldPos.x, worldPos.y + 0.02, worldPos.z);
+    const pos = this.gridToWorldPosition(x, y);
+    mesh.position.set(pos.x, pos.y + 0.02, pos.z);
 
     this.highlightGroup.add(mesh);
   }
