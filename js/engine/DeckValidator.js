@@ -1,4 +1,4 @@
-DeckValidator.jsimport { BoardConfig } from './BoardConfig.js';
+import { BoardConfig } from './BoardConfig.js';
 import { GameState } from './GameState.js';
 import { taikyokuPieces } from '../data/taikyokuPieces.js';
 
@@ -18,17 +18,14 @@ export class DeckValidator {
 
   /**
    * デッキ配置の妥当性検証
-   * @param {Array<Object>} deckItems 例: [{ pieceName: '玉将', x: 4, y: 8 }]
-   * @param {Object} boardConfig
-   * @param {number} owner 0: 先手, 1: 後手
    */
   static validate(deckItems, boardConfig, owner) {
     if (!Array.isArray(deckItems)) {
-      return { valid: false, error: 'Deck must be an array' };
+      return { valid: false, error: '配置データが不正です' };
     }
 
     if (deckItems.length === 0 || deckItems.length > this.MAX_PIECES_PER_DECK) {
-      return { valid: false, error: `Piece count must be between 1 and ${this.MAX_PIECES_PER_DECK}` };
+      return { valid: false, error: `駒の数は1〜${this.MAX_PIECES_PER_DECK}個にしてください` };
     }
 
     const territory = this.getPlayerTerritoryY(boardConfig.rows, owner);
@@ -37,41 +34,36 @@ export class DeckValidator {
 
     for (const item of deckItems) {
       if (!taikyokuPieces.has(item.pieceName)) {
-        return { valid: false, error: `Unknown piece: ${item.pieceName}` };
+        return { valid: false, error: `未知の駒: ${item.pieceName}` };
       }
 
       if (GameState.ROYAL_PIECES.has(item.pieceName)) {
         royalCount++;
       }
 
-      // 自陣の範囲内か判定
       if (item.x < 0 || item.x >= boardConfig.cols ||
           item.y < territory.minY || item.y > territory.maxY) {
-        return { valid: false, error: `Piece ${item.pieceName} placed outside territory` };
+        return { valid: false, error: `${item.pieceName} が自陣の範囲外です` };
       }
 
-      // Voidマスでないか判定
       if (!BoardConfig.isWalkable(boardConfig, item.x, item.y)) {
-        return { valid: false, error: `Piece ${item.pieceName} placed on void cell` };
+        return { valid: false, error: `${item.pieceName} が進入不能マスにあります` };
       }
 
       const coordKey = `${item.x},${item.y}`;
       if (occupiedCoords.has(coordKey)) {
-        return { valid: false, error: `Overlapping pieces at ${coordKey}` };
+        return { valid: false, error: `マス (${item.x}, ${item.y}) で駒が重複しています` };
       }
       occupiedCoords.add(coordKey);
     }
 
     if (royalCount !== 1) {
-      return { valid: false, error: 'Deck must contain exactly one royal piece (玉将, 王将, 帥操)' };
+      return { valid: false, error: '王将・玉将・帥操のいずれか1枚を含めてください' };
     }
 
     return { valid: true };
   }
 
-  /**
-   * テスト用の標準初期配置デッキを生成
-   */
   static getSamplePreset(boardConfig, owner) {
     const isSente = owner === GameState.TURN.SENTE;
     const yRow3 = isSente ? boardConfig.rows - 1 : 0;
@@ -81,19 +73,14 @@ export class DeckValidator {
     const royalPiece = isSente ? '玉将' : '王将';
 
     return [
-      // 1段目（歩兵ライン）
       { pieceName: '歩兵', x: 2, y: yRow1 },
       { pieceName: '歩兵', x: 3, y: yRow1 },
       { pieceName: '歩兵', x: 4, y: yRow1 },
       { pieceName: '歩兵', x: 5, y: yRow1 },
       { pieceName: '歩兵', x: 6, y: yRow1 },
-
-      // 2段目（大駒・特殊駒）
       { pieceName: '角行', x: 2, y: yRow2 },
       { pieceName: '獅子', x: 4, y: yRow2 },
       { pieceName: '飛車', x: 6, y: yRow2 },
-
-      // 3段目（王・金銀）
       { pieceName: '銀将', x: 3, y: yRow3 },
       { pieceName: royalPiece, x: 4, y: yRow3 },
       { pieceName: '金将', x: 5, y: yRow3 }

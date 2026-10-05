@@ -1,117 +1,58 @@
 :root {
-  --bg-color: rgba(18, 18, 20, 0.95);
-  --panel-bg: rgba(28, 28, 32, 0.85);
-  --border-color: #3a3a42;
+  --bg-panel: rgba(22, 22, 26, 0.92);
+  --bg-card: #1c1c22;
+  --border-color: #383842;
   --accent-gold: #c5a059;
-  --accent-red: #a8383b;
-  --text-main: #f0f0f2;
+  --accent-red: #c0392b;
+  --text-main: #f0ede6;
   --text-sub: #9e9ea6;
   --font-serif: "Hiragino Mincho ProN", "Yu Mincho", serif;
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
-#ui-layer {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.interactive {
-  pointer-events: auto;
-}
-
-/* 共通ボタンスタイル */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px 20px;
-  background: #25252b;
-  color: var(--text-main);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  font-family: var(--font-sans);
-  font-size: 14px;
-  letter-spacing: 0.05em;
-  cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
-}
-
-.btn:active {
-  background: #33333d;
-}
-
-.btn-primary {
-  background: var(--accent-gold);
-  color: #121214;
-  border-color: var(--accent-gold);
-  font-weight: 600;
-}
-
-.btn-primary:active {
-  background: #b08d4a;
-}
-
-.btn-danger {
-  background: var(--accent-red);
-  color: #ffffff;
-  border-color: var(--accent-red);
-}
-
-/* スタート画面 */
 #start-screen {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: #101012;
+  background: radial-gradient(circle, #1a1a22 0%, #08080a 100%);
   display: flex;
   flex-direction: column;
-  align-items: center;
   justify-content: center;
-  z-index: 100;
-  transition: opacity 0.5s ease;
-}
-
-#start-screen.hidden {
-  opacity: 0;
-  pointer-events: none;
+  align-items: center;
+  cursor: pointer;
+  z-index: 50;
 }
 
 .title-logo {
   font-family: var(--font-serif);
   font-size: 56px;
-  letter-spacing: 0.2em;
-  color: var(--text-main);
+  font-weight: 700;
+  letter-spacing: 12px;
+  color: var(--accent-gold);
+  text-shadow: 0 4px 20px rgba(197, 160, 89, 0.25);
   margin-bottom: 8px;
-  text-indent: 0.2em;
 }
 
 .subtitle {
-  font-size: 13px;
-  letter-spacing: 0.3em;
-  color: var(--accent-gold);
-  margin-bottom: 60px;
+  font-size: 14px;
+  letter-spacing: 6px;
+  color: var(--text-sub);
+  margin-bottom: 48px;
 }
 
 .tap-indicator {
-  font-size: 14px;
-  letter-spacing: 0.15em;
-  color: var(--text-sub);
+  font-size: 13px;
+  letter-spacing: 2px;
+  color: var(--text-main);
   animation: pulse 2s infinite ease-in-out;
 }
 
 @keyframes pulse {
   0%, 100% { opacity: 0.3; }
-  50% { opacity: 0.9; }
+  50% { opacity: 1; }
 }
 
-/* メニュー画面共通 */
 #menu-screen {
   position: absolute;
   top: 0;
@@ -120,42 +61,36 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  z-index: 10;
-}
-
-#menu-screen.hidden {
-  display: none;
 }
 
 .top-bar {
   height: 52px;
-  padding: 0 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: var(--panel-bg);
+  background: var(--bg-panel);
   border-bottom: 1px solid var(--border-color);
-  backdrop-filter: blur(8px);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 16px;
 }
 
 .player-info {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .avatar-badge {
   width: 32px;
   height: 32px;
-  border-radius: 50%;
+  border-radius: 4px;
+  background: #2a2a34;
   border: 1px solid var(--accent-gold);
-  background: #1e1e24;
+  color: var(--accent-gold);
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: var(--font-serif);
-  font-size: 14px;
-  color: var(--accent-gold);
+  font-weight: bold;
 }
 
 .player-name {
@@ -165,25 +100,24 @@
 
 .currency-badge {
   font-size: 13px;
+  font-weight: bold;
   color: var(--accent-gold);
-  letter-spacing: 0.05em;
-  background: #1a1a20;
-  padding: 4px 10px;
+  background: #141418;
+  padding: 4px 12px;
   border-radius: 12px;
-  border: 1px solid #33333d;
+  border: 1px solid var(--border-color);
 }
 
-/* メインコンテンツ領域 */
 .tab-content-area {
   flex: 1;
   overflow-y: auto;
   padding: 16px;
-  position: relative;
+  margin-bottom: 56px;
 }
 
 .tab-pane {
   display: none;
-  max-width: 600px;
+  max-width: 480px;
   margin: 0 auto;
 }
 
@@ -191,53 +125,102 @@
   display: block;
 }
 
-/* 下部タブバー */
 .bottom-nav {
-  height: 60px;
-  background: var(--panel-bg);
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 56px;
+  background: var(--bg-panel);
   border-top: 1px solid var(--border-color);
   display: flex;
-  backdrop-filter: blur(8px);
+  justify-content: space-around;
+  align-items: center;
 }
 
 .nav-item {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
+  height: 100%;
   background: transparent;
   border: none;
   color: var(--text-sub);
   font-size: 12px;
-  letter-spacing: 0.05em;
+  font-weight: bold;
+  letter-spacing: 1px;
   cursor: pointer;
-  transition: color 0.2s;
+  transition: all 0.2s;
 }
 
 .nav-item.active {
   color: var(--accent-gold);
-  font-weight: 600;
+  border-top: 2px solid var(--accent-gold);
 }
 
-/* 対局タブ (中央) */
-.section-card {
-  background: var(--panel-bg);
-  border: 1px solid var(--border-color);
+.sub-nav-bar {
+  display: flex;
+  background: #141418;
   border-radius: 6px;
+  padding: 3px;
+  margin-bottom: 12px;
+}
+
+.sub-nav-btn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-sub);
+  padding: 6px 0;
+  font-size: 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.sub-nav-btn.active {
+  background: #2a2a34;
+  color: var(--text-main);
+  font-weight: bold;
+}
+
+.section-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
   padding: 16px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .card-title {
-  font-size: 14px;
-  font-family: var(--font-serif);
-  letter-spacing: 0.1em;
-  margin-bottom: 12px;
+  font-size: 13px;
+  font-weight: bold;
   color: var(--accent-gold);
-  border-bottom: 1px solid #2e2e36;
-  padding-bottom: 6px;
+  letter-spacing: 1px;
+  margin-bottom: 12px;
+}
+
+.btn {
+  background: #2a2a34;
+  color: var(--text-main);
+  border: 1px solid var(--border-color);
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn:active {
+  background: #383846;
+}
+
+.btn-primary {
+  background: var(--accent-gold);
+  color: #111;
+  border-color: var(--accent-gold);
+  font-weight: bold;
+}
+
+.btn-primary:active {
+  background: #ad8b4a;
 }
 
 .cpu-select-list {
@@ -248,22 +231,23 @@
 
 .cpu-item {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  background: #202026;
-  padding: 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
+  align-items: center;
+  background: #141418;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid #282830;
 }
 
 .cpu-meta {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .cpu-name {
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: bold;
 }
 
 .cpu-desc {
@@ -271,165 +255,23 @@
   color: var(--text-sub);
 }
 
-/* 編成・獲得タブ (左) */
-.sub-nav-bar {
-  display: flex;
-  border-bottom: 1px solid var(--border-color);
-  margin-bottom: 16px;
-}
-
-.sub-nav-btn {
-  flex: 1;
-  padding: 8px 0;
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--text-sub);
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.sub-nav-btn.active {
-  color: var(--text-main);
-  border-bottom-color: var(--accent-gold);
-}
-
-.gacha-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.gacha-banner {
-  background: #1a1a22;
-  border: 1px solid var(--accent-gold);
-  border-radius: 6px;
-  padding: 20px;
-  text-align: center;
-}
-
-.gacha-title {
-  font-family: var(--font-serif);
-  font-size: 20px;
-  letter-spacing: 0.1em;
-  margin-bottom: 8px;
-}
-
-.gacha-actions {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-}
-
-/* 駒図鑑グリッド */
-.catalog-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
-  gap: 8px;
-}
-
-.catalog-card {
-  background: #222228;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  padding: 8px 4px;
-  text-align: center;
-  cursor: pointer;
-}
-
-.catalog-card.unowned {
-  opacity: 0.35;
-}
-
-.catalog-card-name {
-  font-family: var(--font-serif);
-  font-size: 14px;
-  margin-bottom: 4px;
-}
-
-.catalog-card-rarity {
-  font-size: 10px;
-  letter-spacing: 0.05em;
-  color: var(--accent-gold);
-}
-
-/* デッキエディタ */
-.deck-editor {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.territory-grid {
-  display: grid;
-  grid-template-columns: repeat(9, 1fr);
-  gap: 4px;
-  background: #18181e;
-  padding: 8px;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-}
-
-.territory-cell {
-  aspect-ratio: 1;
-  background: #22222a;
-  border: 1px solid #33333d;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-serif);
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.territory-cell.selected {
-  border-color: var(--accent-gold);
-  background: #2d2a24;
-}
-
-.inventory-tray {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 8px;
-}
-
-.tray-piece {
-  flex-shrink: 0;
-  width: 50px;
-  height: 50px;
-  background: #222228;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-serif);
-  font-size: 12px;
-  cursor: pointer;
-}
-
-/* 記録タブ (右) */
 .profile-field {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #282830;
 }
 
 .profile-input {
-  background: #1c1c22;
+  background: #141418;
   border: 1px solid var(--border-color);
   color: var(--text-main);
-  padding: 6px 10px;
+  padding: 6px 8px;
   border-radius: 4px;
   font-size: 13px;
-  outline: none;
-}
-
-.profile-input:focus {
-  border-color: var(--accent-gold);
+  text-align: right;
+  width: 120px;
 }
 
 .achievement-list {
@@ -440,12 +282,12 @@
 
 .achievement-item {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  background: #202026;
+  align-items: center;
+  background: #141418;
   padding: 10px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
+  border-radius: 6px;
+  border: 1px solid #282830;
 }
 
 .achieve-meta {
@@ -456,6 +298,7 @@
 
 .achieve-title {
   font-size: 13px;
+  font-weight: bold;
 }
 
 .achieve-reward {
@@ -463,28 +306,139 @@
   color: var(--accent-gold);
 }
 
-/* 汎用モーダル */
+.gacha-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.gacha-banner {
+  width: 100%;
+  background: linear-gradient(135deg, #1c1c24, #2d261e);
+  border: 1px solid var(--accent-gold);
+  border-radius: 8px;
+  padding: 24px 16px;
+  text-align: center;
+}
+
+.gacha-title {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  color: var(--accent-gold);
+  margin-bottom: 6px;
+}
+
+.gacha-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.territory-grid {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 3px;
+  margin-bottom: 12px;
+  background: #111114;
+  padding: 6px;
+  border-radius: 6px;
+}
+
+.territory-cell {
+  aspect-ratio: 1;
+  background: #22222a;
+  border: 1px solid #33333e;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-family: var(--font-serif);
+  cursor: pointer;
+}
+
+.territory-cell.selected {
+  border-color: var(--accent-gold);
+  background: #333344;
+}
+
+.inventory-tray {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  max-height: 180px;
+  overflow-y: auto;
+  background: #111114;
+  padding: 8px;
+  border-radius: 6px;
+}
+
+.tray-piece {
+  background: #1c1c24;
+  border: 1px solid #33333e;
+  border-radius: 4px;
+  padding: 6px;
+  text-align: center;
+  font-family: var(--font-serif);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.catalog-card {
+  background: #1c1c24;
+  border: 1px solid #2d2d38;
+  border-radius: 6px;
+  padding: 10px 4px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.catalog-card.unowned {
+  opacity: 0.35;
+  filter: grayscale(1);
+}
+
+.catalog-card-name {
+  font-family: var(--font-serif);
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.catalog-card-rarity {
+  font-size: 10px;
+  color: var(--accent-gold);
+  margin-top: 2px;
+}
+
 .modal-overlay {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(10, 10, 12, 0.85);
+  background: rgba(0, 0, 0, 0.75);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 200;
+  z-index: 100;
+  padding: 20px;
 }
 
 .modal-card {
-  width: 90%;
-  max-width: 440px;
-  background: #1b1b22;
+  background: #18181f;
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 20px;
+  width: 100%;
+  max-width: 360px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
