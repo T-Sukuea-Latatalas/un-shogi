@@ -1,180 +1,297 @@
-import { SecureStorage } from "./storage/SecureStorage.js";
-import { PieceCatalog } from "./features/PieceCatalog.js";
-import { GachaSystem } from "./features/GachaSystem.js";
-import { AchievementManager } from "./features/AchievementManager.js";
-import { ThreeScene } from "./view/ThreeScene.js";
-import { BoardMeshBuilder } from "./view/BoardMeshBuilder.js";
-import { PieceMeshBuilder } from "./view/PieceMeshBuilder.js";
-import { GameState } from "./engine/GameState.js";
-import { RuleEngine } from "./engine/RuleEngine.js";
-import { getBoardConfig } from "./engine/BoardConfig.js";
-import { OPPONENT_PRESETS } from "./ai/OpponentPresets.js";
-import { SimpleAI } from "./ai/SimpleAI.js";
-import { RatingSystem } from "./engine/RatingSystem.js";
-import { UIManager } from "./ui/UIManager.js";
-import { DeckEditView } from "./ui/DeckEditView.js";
+import * as THREE from 'three';
+import './data/originalPieces.js'; // オリジナル駒の読み込み・登録
+import { BoardConfig } from './engine/BoardConfig.js';
+import { GameState } from './engine/GameState.js';
+import { RuleEngine } from './engine/RuleEngine.js';
+import { DeckValidator } from './engine/DeckValidator.js';
+import { RatingSystem } from './engine/RatingSystem.js';
+import { SecureStorage } from './storage/SecureStorage.js';
+import { OpponentPresets } from './ai/OpponentPresets.js';
+import { SimpleAI } from './ai/SimpleAI.js';
+import { ThreeScene } from './view/ThreeScene.js';
+import { BoardMeshBuilder } from './view/BoardMeshBuilder.js';
+import { PieceMeshBuilder } from './view/PieceMeshBuilder.js';
+import { UIManager } from './ui/UIManager.js';
 
-class Application {
-    constructor() {
-        this.storage = new SecureStorage();
-        this.catalog = new PieceCatalog();
-        this.gacha = new GachaSystem(this.storage, this.catalog);
-        this.achievements = new AchievementManager(this.storage);
-        this.rating = new RatingSystem(this.storage);
+export class UnShogiApp {
+  constructor() {
+    this.canvas = document.getElementById('game-canvas');
+    this.sceneManager = new ThreeScene(this.canvas);
+    this.uiManager = new UIManager(this);
 
-        this.canvas = document.getElementById("webgl-canvas");
-        this.scene = new ThreeScene(this.canvas);
-        this.boardBuilder = new BoardMeshBuilder(this.scene);
-        this.pieceBuilder = new PieceMeshBuilder(this.scene);
+    this.boardConfig = null;
+    this.gameState = null;
+    this.currentOpponent = null;
 
-        this.gameState = null;
-        this.ruleEngine = null;
-        this.ai = null;
-        this.currentOpponent = null;
+    this.pieceMeshes = new Map();
+    this.selectedCoord = null;
+    this.currentLegalMoves = [];
+    this.highlightGroup = new THREE.Group();
+    this.boardGroup = null;
 
-        this.ui = new UIManager(this);
-        this.deckEditor = new DeckEditView(this);
+    this.isAiThinking = false;
 
-        this.selectedTile = null;
-        this.validMoves = [];
-        this.isProcessingMove = false;
+    this.sceneManager.scene.add(this.highlightGroup);
+    this.sceneManager.onCellClick = (x, y) => this.handleCellClick(x, y);
+    this.sceneManager.startRenderLoop();
+  }
+
+  /**
+   * 対局のセットアップと開始
+   */
+  async startMatch(playerDeck = null, opponentId = 'sugai_1200') {
+    this.currentOpponent = OpponentPresets.find(o => o.id === opponentId) || OpponentPresets[0];
+    this.boardConfig = BoardConfig.create(this.currentOpponent.boardPresetId);
+    this.gameState = new GameState(this.boardConfig);
+
+    this.clearBoardScene();
+    this.sceneManager.setupCamera(this.boardConfig.cols, this.boardConfig.rows);
+
+    // 盤面メッシュの再生成
+    const { boardGroup, cellMeshes } = BoardMeshBuilder.build(this.boardConfig);
+    this.boardGroup = boardGroup;
+    this.sceneManager.scene.add(this.boardGroup);
+    this.sceneManager.setInteractiveMeshes(cellMeshes);
+
+    // プレイヤー陣営の初期配置
+    const defaultDeck = DeckValidator.getSamplePreset(this.boardConfig, GameState.TURN.SENTE);
+    const resolvedPlayerDeck = playerDeck || defaultDeck;
+    this.spawnDeck(resolvedPlayerDeck, GameState.TURN.SENTE);
+
+    // 対戦相手陣営の初期配置
+    this.spawnDeck(this.currentOpponent.deck, GameState.TURN.GOTE);
+  }
+
+  spawnDeck(deckItems, owner) {
+    for (const item of deckItems) {
+      if (!BoardConfig.isWalkable(this.boardConfig, item.x, item.y)) continue;
+
+      const pieceData = {
+        name: item.pieceName,
+        baseName: item.pieceName,
+        owner: owner,
+        isPromoted: false
+      };
+      this.gameState.setPiece(item.x, item.y, pieceData);
+
+      const mesh = PieceMeshBuilder.createPieceMesh(item.pieceName, owner, false);
+      const worldPos = this.gridToWorldPosition(item.x, item.y);
+      mesh.position.set(worldPos.x, worldPos.y, worldPos.z);
+
+      this.sceneManager.scene.add(mesh);
+      this.pieceMeshes.set(`${item.x},${item.y}`, mesh);
     }
+  }
 
-    async initialize() {
-        this.storage.load();
-        this.catalog.initialize();
-        this.scene.initialize();
+  gridToWorldPosition(x, y) {
+    const size = BoardMeshBuilder.CELL_SIZE;
+    const offsetX = ((this.boardConfig.cols - 1) * size) / 2;
+    const offsetZ = ((this.boardConfig.rows - 1) * size) / 2;
+    const cellHeight = BoardMeshBuilder.BASE_HEIGHT + BoardConfig.getHeight(this.boardConfig, x, y);
 
-        this.scene.onCellClicked = (x, z) => this.handleCellClick(x, z);
+    return {
+      x: x * size - offsetX,
+      y: cellHeight + 0.14,
+      z: y * size - offsetZ
+    };
+  }
 
-        this.ui.setupEvents();
-        this.deckEditor.setupEvents();
+  handleCellClick(x, y) {
+    if (this.isAiThinking || this.gameState.winner !== null) return;
+    if (this.gameState.currentTurn !== GameState.TURN.SENTE) return;
 
-        this.ui.hideLoading();
-        this.ui.showScreen("title");
-    }
+    // 移動先の決定
+    if (this.selectedCoord) {
+      const move = this.currentLegalMoves.find(m => m.toX === x && m.toY === y);
+      if (move) {
+        this.executeMove(move);
+        this.clearSelection();
 
-    startBattle(opponentId) {
-        this.currentOpponent = OPPONENT_PRESETS.find(op => op.id === opponentId) || OPPONENT_PRESETS[0];
-        const boardConfig = getBoardConfig(this.currentOpponent.boardType);
-
-        this.gameState = new GameState(boardConfig);
-        this.ruleEngine = new RuleEngine(this.gameState);
-        this.ai = new SimpleAI(this.ruleEngine, this.currentOpponent.difficulty);
-
-        const playerDeck = this.storage.getCurrentDeck();
-        this.gameState.setupInitialPlacement(playerDeck, this.currentOpponent.deck);
-
-        this.boardBuilder.build(boardConfig);
-        this.pieceBuilder.sync(this.gameState);
-
-        this.ui.showScreen("game");
-        this.ui.updateTurnIndicator(this.gameState.currentTurn);
-    }
-
-    async handleCellClick(x, z) {
-        if (this.isProcessingMove) return;
-        if (this.gameState.isGameOver) return;
-        if (this.gameState.currentTurn !== "SENTE") return;
-
-        const piece = this.gameState.getPieceAt(x, z);
-
-        if (this.selectedTile) {
-            const isMoveTarget = this.validMoves.some(m => m.toX === x && m.toZ === z);
-            if (isMoveTarget) {
-                await this.executeMove(this.selectedTile.x, this.selectedTile.z, x, z);
-                return;
-            }
+        if (this.gameState.winner === null) {
+          this.triggerAiTurn();
         }
-
-        if (piece && piece.owner === "SENTE") {
-            this.selectedTile = { x, z };
-            this.validMoves = this.ruleEngine.calculateLegalMoves(x, z);
-            this.boardBuilder.highlightTiles(this.validMoves);
-        } else {
-            this.selectedTile = null;
-            this.validMoves = [];
-            this.boardBuilder.clearHighlights();
-        }
+        return;
+      }
     }
 
-    async executeMove(fromX, fromZ, toX, toZ) {
-        this.isProcessingMove = true;
-        this.boardBuilder.clearHighlights();
+    // 自軍駒の選択
+    const piece = this.gameState.getPiece(x, y);
+    if (piece && piece.owner === GameState.TURN.SENTE) {
+      this.selectedCoord = { x, y };
+      this.currentLegalMoves = RuleEngine.getLegalMoves(this.gameState, x, y);
+      this.updateHighlights();
+    } else {
+      this.clearSelection();
+    }
+  }
 
-        const moveResult = this.gameState.applyMove(fromX, fromZ, toX, toZ);
-        await this.pieceBuilder.animateMove(fromX, fromZ, toX, toZ, moveResult);
+  executeMove(move) {
+    const fromKey = `${move.fromX},${move.fromY}`;
+    const toKey = `${move.toX},${move.toY}`;
 
-        this.selectedTile = null;
-        this.validMoves = [];
-
-        if (this.gameState.checkVictory()) {
-            this.handleGameEnd(this.gameState.winner);
-            this.isProcessingMove = false;
-            return;
-        }
-
-        this.gameState.switchTurn();
-        this.ui.updateTurnIndicator(this.gameState.currentTurn);
-
-        if (this.gameState.currentTurn === "GOTE") {
-            await this.processAITurn();
-        }
-
-        this.isProcessingMove = false;
+    // 移動先の敵駒メッシュ消去
+    if (!move.isIgai && this.pieceMeshes.has(toKey)) {
+      const capMesh = this.pieceMeshes.get(toKey);
+      this.sceneManager.scene.remove(capMesh);
+      this.pieceMeshes.delete(toKey);
     }
 
-    async processAITurn() {
-        this.ui.setThinkingState(true);
-        const bestMove = await this.ai.computeBestMove(this.gameState);
-        this.ui.setThinkingState(false);
-
-        if (bestMove) {
-            const moveResult = this.gameState.applyMove(
-                bestMove.fromX,
-                bestMove.fromZ,
-                bestMove.toX,
-                bestMove.toZ
-            );
-            await this.pieceBuilder.animateMove(
-                bestMove.fromX,
-                bestMove.fromZ,
-                bestMove.toX,
-                bestMove.toZ,
-                moveResult
-            );
-
-            if (this.gameState.checkVictory()) {
-                this.handleGameEnd(this.gameState.winner);
-                return;
-            }
-
-            this.gameState.switchTurn();
-            this.ui.updateTurnIndicator(this.gameState.currentTurn);
+    // マルチステップでの捕獲処理
+    if (move.capturedSteps) {
+      for (const step of move.capturedSteps) {
+        const stepKey = `${step.x},${step.y}`;
+        if (this.pieceMeshes.has(stepKey)) {
+          const capMesh = this.pieceMeshes.get(stepKey);
+          this.sceneManager.scene.remove(capMesh);
+          this.pieceMeshes.delete(stepKey);
         }
+      }
     }
 
-    handleGameEnd(winner) {
-        const isPlayerWin = winner === "SENTE";
-        const rateChange = this.rating.updateAfterMatch(this.currentOpponent.rating, isPlayerWin);
+    const mesh = this.pieceMeshes.get(fromKey);
+    this.pieceMeshes.delete(fromKey);
 
-        if (isPlayerWin) {
-            this.storage.addCoins(100);
-            this.achievements.trigger("WIN_BATTLE");
-        }
+    const destX = move.isIgai ? move.fromX : move.toX;
+    const destY = move.isIgai ? move.fromY : move.toY;
+    const worldPos = this.gridToWorldPosition(destX, destY);
 
-        this.storage.save();
-        this.ui.showResultModal({
-            won: isPlayerWin,
-            rateChange: rateChange,
-            coins: isPlayerWin ? 100 : 20
-        });
+    mesh.position.set(worldPos.x, worldPos.y, worldPos.z);
+    this.pieceMeshes.set(`${destX},${destY}`, mesh);
+
+    const result = this.gameState.applyMove(move);
+
+    if (result.winner !== null) {
+      this.handleGameOver(result.winner);
     }
+  }
+
+  async triggerAiTurn() {
+    this.isAiThinking = true;
+
+    const move = await SimpleAI.selectMove(this.gameState, this.currentOpponent.aiParams);
+    if (move) {
+      this.executeMove(move);
+    } else {
+      // 合法手が存在しない場合は投了扱い
+      this.handleGameOver(GameState.TURN.SENTE);
+    }
+
+    this.isAiThinking = false;
+  }
+
+  async handleGameOver(winner) {
+    const isPlayerWin = winner === GameState.TURN.SENTE;
+    const saveData = await SecureStorage.load();
+
+    const currentRate = saveData.rating || 1500;
+    const { newRating, delta } = RatingSystem.calculate(currentRate, this.currentOpponent.rating, isPlayerWin);
+
+    saveData.rating = newRating;
+    saveData.stats = saveData.stats || { wins: 0, losses: 0 };
+
+    if (isPlayerWin) {
+      saveData.stats.wins++;
+      saveData.coins = (saveData.coins || 0) + 150;
+    } else {
+      saveData.stats.losses++;
+      saveData.coins = (saveData.coins || 0) + 30;
+    }
+
+    await SecureStorage.save(saveData);
+
+    this.showGameOverModal(isPlayerWin, delta, newRating);
+  }
+
+  showGameOverModal(isPlayerWin, rateDelta, newRating) {
+    const modalContainer = document.getElementById('modal-container');
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay interactive';
+
+    const rankName = RatingSystem.getRankName(newRating);
+    const outcomeTitle = isPlayerWin ? '勝 礼' : '敗 礼';
+    const outcomeColor = isPlayerWin ? 'var(--accent-gold)' : 'var(--text-sub)';
+
+    overlay.innerHTML = `
+      <div class="modal-card" style="text-align:center;">
+        <div style="font-family:var(--font-serif); font-size:32px; color:${outcomeColor};">${outcomeTitle}</div>
+        <div style="font-size:14px; margin:8px 0;">
+          変動: ${rateDelta >= 0 ? '+' : ''}${rateDelta} (新レート: ${newRating})
+        </div>
+        <div style="font-size:12px; color:var(--text-sub); margin-bottom:16px;">
+          段級位: ${rankName}
+        </div>
+        <button class="btn btn-primary" id="btn-return-menu">本陣へ戻る</button>
+      </div>
+    `;
+
+    overlay.querySelector('#btn-return-menu').addEventListener('click', () => {
+      overlay.remove();
+      this.clearBoardScene();
+      document.getElementById('menu-screen').classList.remove('hidden');
+      this.uiManager.refreshHeader();
+    });
+
+    modalContainer.appendChild(overlay);
+  }
+
+  clearBoardScene() {
+    for (const [, mesh] of this.pieceMeshes) {
+      this.sceneManager.scene.remove(mesh);
+      if (mesh.geometry) mesh.geometry.dispose();
+    }
+    this.pieceMeshes.clear();
+
+    if (this.boardGroup) {
+      this.sceneManager.scene.remove(this.boardGroup);
+      this.boardGroup = null;
+    }
+
+    this.clearSelection();
+  }
+
+  clearSelection() {
+    this.selectedCoord = null;
+    this.currentLegalMoves = [];
+    this.updateHighlights();
+  }
+
+  updateHighlights() {
+    while (this.highlightGroup.children.length > 0) {
+      const child = this.highlightGroup.children[0];
+      this.highlightGroup.remove(child);
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) child.material.dispose();
+    }
+
+    if (!this.selectedCoord) return;
+
+    this.addHighlightMesh(this.selectedCoord.x, this.selectedCoord.y, 0xc5a059, 0.45);
+
+    for (const move of this.currentLegalMoves) {
+      this.addHighlightMesh(move.toX, move.toY, 0x5a9e78, 0.55);
+    }
+  }
+
+  addHighlightMesh(x, y, colorHex, opacity) {
+    const size = BoardMeshBuilder.CELL_SIZE - 0.08;
+    const geo = new THREE.PlaneGeometry(size, size);
+    geo.rotateX(-Math.PI / 2);
+
+    const mat = new THREE.MeshBasicMaterial({
+      color: colorHex,
+      transparent: true,
+      opacity: opacity,
+      depthWrite: false
+    });
+
+    const mesh = new THREE.Mesh(geo, mat);
+    const worldPos = this.gridToWorldPosition(x, y);
+    mesh.position.set(worldPos.x, worldPos.y + 0.02, worldPos.z);
+
+    this.highlightGroup.add(mesh);
+  }
 }
 
-window.addEventListener("DOMContentLoaded", () => {
-    const app = new Application();
-    app.initialize().catch(err => {
-        console.error("Initialization Failed:", err);
-    });
+window.addEventListener('DOMContentLoaded', () => {
+  window.unShogiApp = new UnShogiApp();
 });
