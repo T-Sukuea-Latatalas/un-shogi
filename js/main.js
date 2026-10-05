@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import './data/originalPieces.js';
 import { pieceRegistry } from './data/originalPieces.js';
 import { BoardConfig } from './engine/BoardConfig.js';
 import { GameState } from './engine/GameState.js';
@@ -36,8 +37,20 @@ export class UnShogiApp {
     this.sceneManager.scene.add(this.highlightGroup);
     this.sceneManager.onCellClick = (x, y) => this.handleCellClick(x, y);
 
-    // アニメーション更新を含むレンダリングループ
-    this.sceneManager.startRenderLoop((time) => this.update(time));
+    this.sceneManager.startRenderLoop(() => this.update());
+
+    // Noto Serif JP フォント読み込み完了後に全駒テクスチャを鮮明に再更新
+    if (document.fonts) {
+      document.fonts.ready.then(() => {
+        for (const [, mesh] of this.pieceMeshes) {
+          PieceMeshBuilder.updatePieceMeshTexture(
+            mesh,
+            mesh.userData.pieceName,
+            mesh.userData.isPromoted
+          );
+        }
+      });
+    }
   }
 
   update() {
@@ -48,14 +61,11 @@ export class UnShogiApp {
         const elapsed = (now - anim.startTime) / 1000;
         const t = Math.min(elapsed / anim.duration, 1.0);
 
-        // イージング（滑らかな加減速）
         const ease = 0.5 - Math.cos(t * Math.PI) / 2;
 
-        // X, Z の線形補間
         anim.mesh.position.x = THREE.MathUtils.lerp(anim.startPos.x, anim.endPos.x, ease);
         anim.mesh.position.z = THREE.MathUtils.lerp(anim.startPos.z, anim.endPos.z, ease);
 
-        // Y 方向の山なり（放物線）浮き上がり演出
         const jumpHeight = 0.6;
         anim.mesh.position.y = THREE.MathUtils.lerp(anim.startPos.y, anim.endPos.y, ease) + Math.sin(t * Math.PI) * jumpHeight;
 
@@ -147,7 +157,7 @@ export class UnShogiApp {
     const piece = this.gameState.getPiece(move.fromX, move.fromY);
     let isPromote = false;
 
-    // 成り判定: 敵陣（手前3段以外: y <= 2）への進入または敵陣からの脱出
+    // 成り判定（敵陣への進入または敵陣からの移動）
     const def = pieceRegistry.get(piece.name);
     if (def && def.promotesTo) {
       const enterEnemy = move.toY <= 2;
@@ -183,7 +193,6 @@ export class UnShogiApp {
         startTime: performance.now(),
         duration: 0.35,
         onComplete: () => {
-          // 移動先の敵駒メッシュ削除
           if (!move.isIgai && this.pieceMeshes.has(toKey)) {
             const capMesh = this.pieceMeshes.get(toKey);
             this.sceneManager.scene.remove(capMesh);
@@ -204,7 +213,6 @@ export class UnShogiApp {
           this.pieceMeshes.delete(fromKey);
           this.pieceMeshes.set(`${destX},${destY}`, mesh);
 
-          // 成り時のテクスチャ更新
           if (isPromote) {
             const def = pieceRegistry.get(mesh.userData.pieceName);
             if (def && def.promotesTo) {
@@ -232,7 +240,6 @@ export class UnShogiApp {
     if (move) {
       const piece = this.gameState.getPiece(move.fromX, move.fromY);
       const def = pieceRegistry.get(piece.name);
-      // 後手CPUは自陣手前（y >= rows - 3）への到達で自動成り
       let isPromote = false;
       if (def && def.promotesTo && (move.toY >= this.boardConfig.rows - 3 || move.fromY >= this.boardConfig.rows - 3)) {
         isPromote = true;
