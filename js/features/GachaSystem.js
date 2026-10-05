@@ -6,37 +6,20 @@ export class GachaSystem {
   static COST_TEN = 1000;
 
   static RARITY_RATES = {
-    UR: 0.03, // 3%
-    SR: 0.12, // 12%
-    R:  0.35, // 35%
-    N:  0.50  // 50%
+    UR: 0.05,
+    SR: 0.20,
+    R:  0.35,
+    N:  0.40
   };
 
-  static BANNER_PRESETS = {
-    STANDARD: {
-      id: 'standard',
-      name: '恒常 登竜門',
-      pickup: []
-    },
-    SHI_SHI_FEST: {
-      id: 'shi_shi_fest',
-      name: '百獣招来 獅子祭',
-      pickup: ['獅子', '獅鷹', '大将']
-    }
-  };
-
-  /**
-   * 1連ガチャを実行
-   */
-  static async rollSingle(bannerId = 'STANDARD') {
+  static async rollSingle() {
     const saveData = await SecureStorage.load();
-    if (saveData.coins < this.COST_SINGLE) {
-      return { success: false, reason: '通貨が不足しています' };
+    if ((saveData.coins || 0) < this.COST_SINGLE) {
+      return { success: false, reason: '銭が不足しています' };
     }
 
     saveData.coins -= this.COST_SINGLE;
-    const banner = this.BANNER_PRESETS[bannerId] || this.BANNER_PRESETS.STANDARD;
-    const piece = this.drawOne(banner, false);
+    const piece = this.drawPiece(false);
 
     saveData.inventory[piece.name] = (saveData.inventory[piece.name] || 0) + 1;
     await SecureStorage.save(saveData);
@@ -48,26 +31,21 @@ export class GachaSystem {
     };
   }
 
-  /**
-   * 10連ガチャを実行（SR以上1枠確定）
-   */
-  static async rollTen(bannerId = 'STANDARD') {
+  static async rollTen() {
     const saveData = await SecureStorage.load();
-    if (saveData.coins < this.COST_TEN) {
-      return { success: false, reason: '通貨が不足しています' };
+    if ((saveData.coins || 0) < this.COST_TEN) {
+      return { success: false, reason: '銭が不足しています' };
     }
 
     saveData.coins -= this.COST_TEN;
-    const banner = this.BANNER_PRESETS[bannerId] || this.BANNER_PRESETS.STANDARD;
     const results = [];
 
-    // 通常抽選 9枠
+    // 通常枠 9回
     for (let i = 0; i < 9; i++) {
-      results.push(this.drawOne(banner, false));
+      results.push(this.drawPiece(false));
     }
-
-    // SR以上保証 1枠
-    results.push(this.drawOne(banner, true));
+    // SR以上確定枠 1回
+    results.push(this.drawPiece(true));
 
     for (const piece of results) {
       saveData.inventory[piece.name] = (saveData.inventory[piece.name] || 0) + 1;
@@ -82,36 +60,21 @@ export class GachaSystem {
     };
   }
 
-  /**
-   * 単発抽選ロジック
-   */
-  static drawOne(banner, guaranteeSrOrHigher = false) {
+  static drawPiece(guaranteeSr = false) {
     let rarity = 'N';
     const rand = Math.random();
 
-    if (guaranteeSrOrHigher) {
-      // 確定枠: UR 20%, SR 80%
-      rarity = rand < 0.2 ? 'UR' : 'SR';
+    if (guaranteeSr) {
+      rarity = rand < 0.25 ? 'UR' : 'SR';
     } else {
-      if (rand < this.RARITY_RATES.UR) {
-        rarity = 'UR';
-      } else if (rand < this.RARITY_RATES.UR + this.RARITY_RATES.SR) {
-        rarity = 'SR';
-      } else if (rand < this.RARITY_RATES.UR + this.RARITY_RATES.SR + this.RARITY_RATES.R) {
-        rarity = 'R';
-      } else {
-        rarity = 'N';
-      }
+      if (rand < this.RARITY_RATES.UR) rarity = 'UR';
+      else if (rand < this.RARITY_RATES.UR + this.RARITY_RATES.SR) rarity = 'SR';
+      else if (rand < this.RARITY_RATES.UR + this.RARITY_RATES.SR + this.RARITY_RATES.R) rarity = 'R';
+      else rarity = 'N';
     }
 
     const pool = PieceCatalog.getPiecesByRarity(rarity);
-
-    // ピックアップ判定
-    const pickupsInPool = pool.filter(p => banner.pickup.includes(p.name));
-    if (pickupsInPool.length > 0 && Math.random() < 0.5) {
-      const idx = Math.floor(Math.random() * pickupsInPool.length);
-      return pickupsInPool[idx];
-    }
+    if (pool.length === 0) return { name: '歩兵', rarity: 'N' };
 
     const idx = Math.floor(Math.random() * pool.length);
     return pool[idx];

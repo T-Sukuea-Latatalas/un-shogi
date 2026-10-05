@@ -1,3 +1,5 @@
+import { pieceRegistry } from '../data/originalPieces.js';
+
 export class GameState {
   static TURN = {
     SENTE: 0,
@@ -33,7 +35,10 @@ export class GameState {
     return this.grid[y][x];
   }
 
-  applyMove(move) {
+  /**
+   * 駒移動の適用（成りフラグ対応）
+   */
+  applyMove(move, isPromote = false) {
     if (this.winner !== null) return { success: false };
 
     const { fromX, fromY, toX, toY, isIgai, capturedSteps } = move;
@@ -42,7 +47,6 @@ export class GameState {
 
     const capturedList = [];
 
-    // マルチステップ途中捕獲（獅子の居食い等）
     if (capturedSteps && capturedSteps.length > 0) {
       for (const step of capturedSteps) {
         const target = this.getPiece(step.x, step.y);
@@ -53,18 +57,26 @@ export class GameState {
       }
     }
 
-    // 目的地の捕獲
     if (!isIgai) {
       const destPiece = this.getPiece(toX, toY);
       if (destPiece) {
         if (destPiece.owner === this.currentTurn) return { success: false };
         capturedList.push(destPiece);
       }
+
+      // 成り処理
+      if (isPromote) {
+        const def = pieceRegistry.get(movingPiece.name);
+        if (def && def.promotesTo) {
+          movingPiece.name = def.promotesTo;
+          movingPiece.isPromoted = true;
+        }
+      }
+
       this.grid[fromY][fromX] = null;
       this.grid[toY][toX] = movingPiece;
     }
 
-    // 捕獲処理と勝敗判定
     for (const captured of capturedList) {
       if (GameState.ROYAL_PIECES.has(captured.name)) {
         this.winner = this.currentTurn;
@@ -79,7 +91,8 @@ export class GameState {
       turn: this.currentTurn,
       from: { x: fromX, y: fromY },
       to: { x: toX, y: toY },
-      isIgai: !!isIgai
+      isIgai: !!isIgai,
+      promoted: isPromote
     });
 
     this.currentTurn = this.currentTurn === GameState.TURN.SENTE

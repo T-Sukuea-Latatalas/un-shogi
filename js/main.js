@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import './data/originalPieces.js';
+import { pieceRegistry } from './data/originalPieces.js';
 import { BoardConfig } from './engine/BoardConfig.js';
 import { GameState } from './engine/GameState.js';
 import { RuleEngine } from './engine/RuleEngine.js';
@@ -29,11 +29,43 @@ export class UnShogiApp {
     this.highlightGroup = new THREE.Group();
     this.boardGroup = null;
 
+    this.isAnimating = false;
     this.isAiThinking = false;
+    this.activeAnimations = [];
 
     this.sceneManager.scene.add(this.highlightGroup);
     this.sceneManager.onCellClick = (x, y) => this.handleCellClick(x, y);
-    this.sceneManager.startRenderLoop();
+
+    // アニメーション更新を含むレンダリングループ
+    this.sceneManager.startRenderLoop((time) => this.update(time));
+  }
+
+  update() {
+    if (this.activeAnimations.length > 0) {
+      const now = performance.now();
+      for (let i = this.activeAnimations.length - 1; i >= 0; i--) {
+        const anim = this.activeAnimations[i];
+        const elapsed = (now - anim.startTime) / 1000;
+        const t = Math.min(elapsed / anim.duration, 1.0);
+
+        // イージング（滑らかな加減速）
+        const ease = 0.5 - Math.cos(t * Math.PI) / 2;
+
+        // X, Z の線形補間
+        anim.mesh.position.x = THREE.MathUtils.lerp(anim.startPos.x, anim.endPos.x, ease);
+        anim.mesh.position.z = THREE.MathUtils.lerp(anim.startPos.z, anim.endPos.z, ease);
+
+        // Y 方向の山なり（放物線）浮き上がり演出
+        const jumpHeight = 0.6;
+        anim.mesh.position.y = THREE.MathUtils.lerp(anim.startPos.y, anim.endPos.y, ease) + Math.sin(t * Math.PI) * jumpHeight;
+
+        if (t >= 1.0) {
+          anim.mesh.position.set(anim.endPos.x, anim.endPos.y, anim.endPos.z);
+          this.activeAnimations.splice(i, 1);
+          if (anim.onComplete) anim.onComplete();
+        }
+      }
+    }
   }
 
   async startMatch(playerDeck = null, opponentId = 'sugai_1200') {
@@ -61,7 +93,7 @@ export class UnShogiApp {
       const pieceData = {
         name: item.pieceName,
         baseName: item.pieceName,
-        owner: owner,
+        owner,
         isPromoted: false
       };
       this.gameState.setPiece(item.x, item.y, pieceData);
@@ -88,19 +120,15 @@ export class UnShogiApp {
     };
   }
 
-  handleCellClick(x, y) {
-    if (this.isAiThinking || this.gameState.winner !== null) return;
+  async handleCellClick(x, y) {
+    if (this.isAnimating || this.isAiThinking || this.gameState.winner !== null) return;
     if (this.gameState.currentTurn !== GameState.TURN.SENTE) return;
 
     if (this.selectedCoord) {
       const move = this.currentLegalMoves.find(m => m.toX === x && m.toY === y);
       if (move) {
-        this.executeMove(move);
         this.clearSelection();
-
-        if (this.gameState.winner === null) {
-          this.triggerAiTurn();
-        }
+        await this.processPlayerMove(move);
         return;
       }
     }
@@ -115,51 +143,105 @@ export class UnShogiApp {
     }
   }
 
-  executeMove(move) {
-    const fromKey = `${move.fromX},${move.fromY}`;
-    const toKey = `${move.toX},${move.toY}`;
+  async processPlayerMove(move) {
+    const piece = this.gameState.getPiece(move.fromX, move.fromY);
+    let isPromote = false;
 
-    if (!move.isIgai && this.pieceMeshes.has(toKey)) {
-      const capMesh = this.pieceMeshes.get(toKey);
-      this.sceneManager.scene.remove(capMesh);
-      this.pieceMeshes.delete(toKey);
-    }
-
-    if (move.capturedSteps) {
-      for (const st of move.capturedSteps) {
-        const k = `${st.x},${st.y}`;
-        if (this.pieceMeshes.has(k)) {
-          const m = this.pieceMeshes.get(k);
-          this.sceneManager.scene.remove(m);
-          this.pieceMeshes.delete(k);
-        }
+    // 成り判定: 敵陣（手前3段以外: y <= 2）への進入または敵陣からの脱出
+    const def = pieceRegistry.get(piece.name);
+    if (def && def.promotesTo) {
+      const enterEnemy = move.toY <= 2;
+      const leaveEnemy = move.fromY <= 2;
+      if (enterEnemy || leaveEnemy) {
+        isPromote = await this.uiManager.promptPromotion(piece.name, def.promotesTo);
       }
     }
 
-    const mesh = this.pieceMeshes.get(fromKey);
-    this.pieceMeshes.delete(fromKey);
+    await this.animateAndApplyMove(move, isPromote);
 
-    const destX = move.isIgai ? move.fromX : move.toX;
-    const destY = move.isIgai ? move.fromY : move.toY;
-    const pos = this.gridToWorldPosition(destX, destY);
-
-    mesh.position.set(pos.x, pos.y, pos.z);
-    this.pieceMeshes.set(`${destX},${destY}`, mesh);
-
-    const res = this.gameState.applyMove(move);
-    if (res.winner !== null) {
-      this.handleGameOver(res.winner);
+    if (this.gameState.winner === null) {
+      this.triggerAiTurn();
     }
+  }
+
+  animateAndApplyMove(move, isPromote = false) {
+    return new Promise(resolve => {
+      this.isAnimating = true;
+
+      const fromKey = `${move.fromX},${move.fromY}`;
+      const toKey = `${move.toX},${move.toY}`;
+      const mesh = this.pieceMeshes.get(fromKey);
+
+      const destX = move.isIgai ? move.fromX : move.toX;
+      const destY = move.isIgai ? move.fromY : move.toY;
+      const endPos = this.gridToWorldPosition(destX, destY);
+
+      this.activeAnimations.push({
+        mesh,
+        startPos: { x: mesh.position.x, y: mesh.position.y, z: mesh.position.z },
+        endPos,
+        startTime: performance.now(),
+        duration: 0.35,
+        onComplete: () => {
+          // 移動先の敵駒メッシュ削除
+          if (!move.isIgai && this.pieceMeshes.has(toKey)) {
+            const capMesh = this.pieceMeshes.get(toKey);
+            this.sceneManager.scene.remove(capMesh);
+            this.pieceMeshes.delete(toKey);
+          }
+
+          if (move.capturedSteps) {
+            for (const st of move.capturedSteps) {
+              const k = `${st.x},${st.y}`;
+              if (this.pieceMeshes.has(k)) {
+                const m = this.pieceMeshes.get(k);
+                this.sceneManager.scene.remove(m);
+                this.pieceMeshes.delete(k);
+              }
+            }
+          }
+
+          this.pieceMeshes.delete(fromKey);
+          this.pieceMeshes.set(`${destX},${destY}`, mesh);
+
+          // 成り時のテクスチャ更新
+          if (isPromote) {
+            const def = pieceRegistry.get(mesh.userData.pieceName);
+            if (def && def.promotesTo) {
+              PieceMeshBuilder.updatePieceMeshTexture(mesh, def.promotesTo, true);
+            }
+          }
+
+          const res = this.gameState.applyMove(move, isPromote);
+          this.isAnimating = false;
+
+          if (res.winner !== null) {
+            this.handleGameOver(res.winner);
+          }
+
+          resolve();
+        }
+      });
+    });
   }
 
   async triggerAiTurn() {
     this.isAiThinking = true;
     const move = await SimpleAI.selectMove(this.gameState, this.currentOpponent.aiParams);
+
     if (move) {
-      this.executeMove(move);
+      const piece = this.gameState.getPiece(move.fromX, move.fromY);
+      const def = pieceRegistry.get(piece.name);
+      // 後手CPUは自陣手前（y >= rows - 3）への到達で自動成り
+      let isPromote = false;
+      if (def && def.promotesTo && (move.toY >= this.boardConfig.rows - 3 || move.fromY >= this.boardConfig.rows - 3)) {
+        isPromote = true;
+      }
+      await this.animateAndApplyMove(move, isPromote);
     } else {
       this.handleGameOver(GameState.TURN.SENTE);
     }
+
     this.isAiThinking = false;
   }
 
@@ -196,7 +278,7 @@ export class UnShogiApp {
 
     overlay.innerHTML = `
       <div class="modal-card" style="text-align:center;">
-        <div style="font-family:var(--font-serif); font-size:32px; color:${color};">${title}</div>
+        <div style="font-family:var(--font-serif); font-size:32px; font-weight:900; color:${color};">${title}</div>
         <div style="font-size:14px; margin:8px 0;">
           変動: ${rateDelta >= 0 ? '+' : ''}${rateDelta} (新レート: ${newRating})
         </div>

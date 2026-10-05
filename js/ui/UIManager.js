@@ -4,6 +4,8 @@ import { OpponentPresets } from '../ai/OpponentPresets.js';
 import { pieceRegistry } from '../data/originalPieces.js';
 import { BoardConfig } from '../engine/BoardConfig.js';
 import { DeckValidator } from '../engine/DeckValidator.js';
+import { GachaSystem } from '../features/GachaSystem.js';
+import { PieceCatalog } from '../features/PieceCatalog.js';
 
 export class UIManager {
   constructor(gameApp) {
@@ -31,7 +33,6 @@ export class UIManager {
       menuScreen.classList.remove('hidden');
     });
 
-    // タブ切り替え
     const navItems = document.querySelectorAll('.nav-item');
     navItems.forEach(btn => {
       btn.addEventListener('click', () => {
@@ -42,11 +43,10 @@ export class UIManager {
         document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
         document.getElementById(tid).classList.add('active');
 
-        if (tid === 'tab-deck') this.renderSubTab('edit');
+        if (tid === 'tab-deck') this.renderSubTab('gacha');
       });
     });
 
-    // サブタブ切り替え
     document.querySelectorAll('.sub-nav-btn').forEach(b => {
       b.addEventListener('click', () => {
         document.querySelectorAll('.sub-nav-btn').forEach(btn => btn.classList.remove('active'));
@@ -55,7 +55,6 @@ export class UIManager {
       });
     });
 
-    // プロフィール保存
     document.getElementById('btn-save-profile').addEventListener('click', async () => {
       const input = document.getElementById('profile-name-input');
       if (input.value.trim()) {
@@ -65,7 +64,6 @@ export class UIManager {
       }
     });
 
-    // 自由対戦開始
     document.getElementById('btn-start-match').addEventListener('click', () => {
       menuScreen.classList.add('hidden');
       this.gameApp.startMatch(this.saveData.customDeck, 'sugai_1200');
@@ -121,16 +119,92 @@ export class UIManager {
     const c = document.getElementById('sub-pane-container');
     c.innerHTML = '';
 
-    if (subKey === 'edit') {
+    if (subKey === 'gacha') {
+      this.renderGacha(c);
+    } else if (subKey === 'edit') {
       this.renderDeckEditor(c);
     } else if (subKey === 'catalog') {
       this.renderCatalog(c);
     }
   }
 
+  renderGacha(container) {
+    container.innerHTML = `
+      <div class="gacha-panel">
+        <div class="gacha-banner">
+          <div class="gacha-title">百獣招来 登竜門</div>
+          <div style="font-size:12px; color:var(--text-sub); margin-bottom:12px;">
+            変則駒・大局将棋駒を獲得して布陣を強化
+          </div>
+          <div class="gacha-actions">
+            <button class="btn" id="btn-gacha-single">単発 (100銭)</button>
+            <button class="btn btn-primary" id="btn-gacha-ten">十連 (1000銭)</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    container.querySelector('#btn-gacha-single').addEventListener('click', async () => {
+      const res = await GachaSystem.rollSingle();
+      if (!res.success) {
+        alert(res.reason);
+        return;
+      }
+      this.saveData.coins = res.remainingCoins;
+      this.refreshHeader();
+      this.showGachaModal(res.results);
+    });
+
+    container.querySelector('#btn-gacha-ten').addEventListener('click', async () => {
+      const res = await GachaSystem.rollTen();
+      if (!res.success) {
+        alert(res.reason);
+        return;
+      }
+      this.saveData.coins = res.remainingCoins;
+      this.refreshHeader();
+      this.showGachaModal(res.results);
+    });
+  }
+
+  showGachaModal(pieces) {
+    const modalContainer = document.getElementById('modal-container');
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay interactive';
+
+    const cardsHtml = pieces.map(p => `
+      <div style="background:#222228; border:1px solid var(--border-color); border-radius:4px; padding:10px; text-align:center;">
+        <div style="font-family:var(--font-serif); font-size:16px;">${p.name}</div>
+        <div style="font-size:11px; color:var(--accent-gold);">${p.rarity}</div>
+      </div>
+    `).join('');
+
+    overlay.innerHTML = `
+      <div class="modal-card">
+        <div class="card-title">招来結果</div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(64px, 1fr)); gap:6px;">
+          ${cardsHtml}
+        </div>
+        <button class="btn btn-primary" id="btn-close-gacha">確認</button>
+      </div>
+    `;
+
+    overlay.querySelector('#btn-close-gacha').addEventListener('click', () => {
+      overlay.remove();
+    });
+
+    modalContainer.appendChild(overlay);
+  }
+
   renderDeckEditor(container) {
     const standardBoard = BoardConfig.create(BoardConfig.PRESETS.STANDARD_9X9);
     this.currentDeck = this.saveData.customDeck || DeckValidator.getSamplePreset(standardBoard, 0);
+
+    // 王将が (4, 8) にない場合は強制配置
+    if (!this.currentDeck.some(p => p.x === 4 && p.y === 8 && p.pieceName === '王将')) {
+      this.currentDeck = this.currentDeck.filter(p => !(p.x === 4 && p.y === 8));
+      this.currentDeck.push({ pieceName: '王将', x: 4, y: 8 });
+    }
 
     container.innerHTML = `
       <div class="deck-editor">
@@ -152,21 +226,28 @@ export class UIManager {
         for (let x = 0; x < 9; x++) {
           const cell = document.createElement('div');
           cell.className = 'territory-cell';
-          const p = this.currentDeck.find(item => item.x === x && item.y === y);
-          if (p) cell.textContent = p.pieceName.slice(0, 2);
 
-          cell.addEventListener('click', () => {
+          const isKingFixed = (x === 4 && y === 8);
+          if (isKingFixed) {
+            cell.classList.add('locked-royal');
+            cell.innerHTML = `<div>王将</div><div style="font-size:9px; color:var(--accent-gold);">固定</div>`;
+          } else {
+            const p = this.currentDeck.find(item => item.x === x && item.y === y);
+            if (p) cell.textContent = p.pieceName.slice(0, 2);
+
+            cell.addEventListener('click', () => {
+              if (this.selectedTerritoryCell && this.selectedTerritoryCell.x === x && this.selectedTerritoryCell.y === y) {
+                this.currentDeck = this.currentDeck.filter(item => !(item.x === x && item.y === y));
+                this.selectedTerritoryCell = null;
+              } else {
+                this.selectedTerritoryCell = { x, y };
+              }
+              updateGrid();
+            });
+
             if (this.selectedTerritoryCell && this.selectedTerritoryCell.x === x && this.selectedTerritoryCell.y === y) {
-              this.currentDeck = this.currentDeck.filter(item => !(item.x === x && item.y === y));
-              this.selectedTerritoryCell = null;
-            } else {
-              this.selectedTerritoryCell = { x, y };
+              cell.classList.add('selected');
             }
-            updateGrid();
-          });
-
-          if (this.selectedTerritoryCell && this.selectedTerritoryCell.x === x && this.selectedTerritoryCell.y === y) {
-            cell.classList.add('selected');
           }
 
           gridEl.appendChild(cell);
@@ -177,12 +258,17 @@ export class UIManager {
     trayEl.innerHTML = '';
     for (const [name, count] of Object.entries(this.saveData.inventory || {})) {
       if (count <= 0) continue;
+      // 王将・玉将はデッキ上で固定のためトレイから除外
+      if (name === '王将' || name === '玉将') continue;
+
       const pEl = document.createElement('div');
       pEl.className = 'tray-piece';
       pEl.innerHTML = `<div>${name.slice(0, 2)}</div><div style="font-size:10px; color:var(--text-sub);">x${count}</div>`;
 
       pEl.addEventListener('click', () => {
         if (!this.selectedTerritoryCell) return;
+        if (this.selectedTerritoryCell.x === 4 && this.selectedTerritoryCell.y === 8) return;
+
         this.currentDeck = this.currentDeck.filter(
           item => !(item.x === this.selectedTerritoryCell.x && item.y === this.selectedTerritoryCell.y)
         );
@@ -216,19 +302,57 @@ export class UIManager {
   }
 
   renderCatalog(container) {
+    const catalog = PieceCatalog.getCatalogWithOwnership(this.saveData.inventory || {});
     const grid = document.createElement('div');
     grid.className = 'catalog-grid';
 
-    for (const [name, def] of pieceRegistry.entries()) {
+    for (const item of catalog) {
       const card = document.createElement('div');
       card.className = 'catalog-card';
       card.innerHTML = `
-        <div class="catalog-card-name">${name.slice(0, 2)}</div>
-        <div class="catalog-card-rarity">${def.rarity}</div>
+        <div class="catalog-card-name">${item.name.slice(0, 2)}</div>
+        <div class="catalog-card-rarity">${item.rarity}</div>
+        <div style="font-size:10px; color:var(--text-sub);">所持: ${item.ownedCount}</div>
       `;
       grid.appendChild(card);
     }
 
     container.appendChild(grid);
+  }
+
+  /**
+   * 成り選択モーダルの表示
+   */
+  async promptPromotion(pieceName, promotesTo) {
+    return new Promise(resolve => {
+      const modalContainer = document.getElementById('modal-container');
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay interactive';
+
+      overlay.innerHTML = `
+        <div class="modal-card" style="text-align:center;">
+          <div class="card-title">成の選択</div>
+          <div style="font-size:15px; margin:12px 0;">
+            ${pieceName} を <strong>${promotesTo}</strong> に成りますか？
+          </div>
+          <div style="display:flex; gap:12px; justify-content:center;">
+            <button class="btn btn-primary" id="btn-promote-yes" style="flex:1;">成る</button>
+            <button class="btn" id="btn-promote-no" style="flex:1;">不成</button>
+          </div>
+        </div>
+      `;
+
+      overlay.querySelector('#btn-promote-yes').addEventListener('click', () => {
+        overlay.remove();
+        resolve(true);
+      });
+
+      overlay.querySelector('#btn-promote-no').addEventListener('click', () => {
+        overlay.remove();
+        resolve(false);
+      });
+
+      modalContainer.appendChild(overlay);
+    });
   }
 }

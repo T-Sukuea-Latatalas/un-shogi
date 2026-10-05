@@ -15,6 +15,14 @@ export class DeckValidator {
     let royalCount = 0;
     const occupied = new Set();
 
+    // 先手の場合、(4, 8) に王将が配置されているか検証
+    if (isSente) {
+      const kingPos = deckItems.find(p => p.x === 4 && p.y === boardConfig.rows - 1);
+      if (!kingPos || kingPos.pieceName !== '王将') {
+        return { valid: false, error: '王将は最奥中央(4, 8)に固定配置してください' };
+      }
+    }
+
     for (const item of deckItems) {
       if (!pieceRegistry.has(item.pieceName)) {
         return { valid: false, error: `未定義の駒: ${item.pieceName}` };
@@ -40,7 +48,7 @@ export class DeckValidator {
     }
 
     if (royalCount !== 1) {
-      return { valid: false, error: '王駒は1枚のみ配置してください' };
+      return { valid: false, error: '王将は1枚のみ配置してください' };
     }
 
     return { valid: true };
@@ -52,8 +60,6 @@ export class DeckValidator {
     const y2 = isSente ? boardConfig.rows - 2 : 1;
     const y1 = isSente ? boardConfig.rows - 3 : 2;
 
-    const royal = isSente ? '玉将' : '王将';
-
     return [
       { pieceName: '歩兵', x: 2, y: y1 },
       { pieceName: '歩兵', x: 3, y: y1 },
@@ -63,7 +69,7 @@ export class DeckValidator {
       { pieceName: '角行', x: 2, y: y2 },
       { pieceName: '飛車', x: 6, y: y2 },
       { pieceName: '銀将', x: 3, y: y3 },
-      { pieceName: royal, x: 4, y: y3 },
+      { pieceName: '王将', x: 4, y: y3 },
       { pieceName: '金将', x: 5, y: y3 }
     ].filter(p => BoardConfig.isWalkable(boardConfig, p.x, p.y));
   }

@@ -3,6 +3,7 @@ import * as THREE from 'three';
 export class PieceMeshBuilder {
   static createPieceGeometry() {
     const shape = new THREE.Shape();
+    // 将棋駒の五角形断面
     shape.moveTo(-0.44, 0);
     shape.lineTo(0.44, 0);
     shape.lineTo(0.50, 0.95);
@@ -23,23 +24,43 @@ export class PieceMeshBuilder {
     return geo;
   }
 
-  static createTexture(text, isPromoted) {
+  /**
+   * 楷書体（Noto Serif JP）を用いた文字テクスチャ生成
+   */
+  static createTexture(text, isPromoted = false) {
     const canvas = document.createElement('canvas');
     canvas.width = 256;
     canvas.height = 256;
     const ctx = canvas.getContext('2d');
 
+    // 駒木肌色
     ctx.fillStyle = '#e4d3b6';
     ctx.fillRect(0, 0, 256, 256);
 
-    ctx.fillStyle = isPromoted ? '#9e2a2b' : '#1c1b1a';
+    // 文字の描画色（通常は漆黒、成りは朱色）
+    ctx.fillStyle = isPromoted ? '#a62424' : '#181716';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = 'bold 90px "Hiragino Mincho ProN", "Yu Mincho", serif';
-    ctx.fillText(text[0] || '', 128, 86);
-    ctx.fillText(text[1] || '', 128, 174);
 
-    return new THREE.CanvasTexture(canvas);
+    // 楷書・明朝フォント指定
+    const fontName = '"Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", serif';
+
+    if (text.length === 1) {
+      ctx.font = `900 130px ${fontName}`;
+      ctx.fillText(text, 128, 134);
+    } else if (text.length === 2) {
+      ctx.font = `900 86px ${fontName}`;
+      ctx.fillText(text[0], 128, 86);
+      ctx.fillText(text[1], 128, 172);
+    } else {
+      ctx.font = `900 62px ${fontName}`;
+      ctx.fillText(text.slice(0, 2), 128, 92);
+      ctx.fillText(text.slice(2), 128, 168);
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    return texture;
   }
 
   static createPieceMesh(pieceName, owner = 0, isPromoted = false) {
@@ -54,5 +75,19 @@ export class PieceMeshBuilder {
 
     mesh.userData = { pieceName, owner, isPromoted };
     return mesh;
+  }
+
+  /**
+   * 既存メッシュのテクスチャを成駒用に差し替え
+   */
+  static updatePieceMeshTexture(mesh, pieceName, isPromoted) {
+    const newTex = this.createTexture(pieceName, isPromoted);
+    if (Array.isArray(mesh.material) && mesh.material[1]) {
+      mesh.material[1].map.dispose();
+      mesh.material[1].map = newTex;
+      mesh.material[1].needsUpdate = true;
+    }
+    mesh.userData.pieceName = pieceName;
+    mesh.userData.isPromoted = isPromoted;
   }
 }
