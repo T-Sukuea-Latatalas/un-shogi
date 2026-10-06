@@ -38,6 +38,7 @@
   letter-spacing: 0.05em;
   cursor: pointer;
   transition: background 0.2s, border-color 0.2s;
+  box-sizing: border-box;
 }
 
 .btn:active {
@@ -136,6 +137,7 @@
   background: var(--panel-bg);
   border-bottom: 1px solid var(--border-color);
   backdrop-filter: blur(8px);
+  box-sizing: border-box;
 }
 
 .player-info {
@@ -176,15 +178,21 @@
 /* メインコンテンツ領域 */
 .tab-content-area {
   flex: 1;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
   overflow-y: auto;
   padding: 16px;
   position: relative;
+  box-sizing: border-box;
 }
 
 .tab-pane {
   display: none;
+  width: 100%;
   max-width: 600px;
   margin: 0 auto;
+  box-sizing: border-box;
 }
 
 .tab-pane.active {
@@ -198,6 +206,7 @@
   border-top: 1px solid var(--border-color);
   display: flex;
   backdrop-filter: blur(8px);
+  box-sizing: border-box;
 }
 
 .nav-item {
@@ -227,6 +236,7 @@
   border-radius: 6px;
   padding: 16px;
   margin-bottom: 16px;
+  box-sizing: border-box;
 }
 
 .card-title {
@@ -253,6 +263,7 @@
   padding: 12px;
   border: 1px solid var(--border-color);
   border-radius: 4px;
+  box-sizing: border-box;
 }
 
 .cpu-meta {
@@ -270,11 +281,12 @@
   color: var(--text-sub);
 }
 
-/* 編成・獲得サブタブ */
+/* サブナビゲーション */
 .sub-nav-bar {
   display: flex;
   border-bottom: 1px solid var(--border-color);
   margin-bottom: 16px;
+  box-sizing: border-box;
 }
 
 .sub-nav-btn {
@@ -298,6 +310,7 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  box-sizing: border-box;
 }
 
 .gacha-banner {
@@ -306,6 +319,7 @@
   border-radius: 6px;
   padding: 24px 16px;
   text-align: center;
+  box-sizing: border-box;
 }
 
 .gacha-title {
@@ -329,6 +343,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
   gap: 8px;
+  box-sizing: border-box;
 }
 
 .catalog-card {
@@ -337,6 +352,7 @@
   border-radius: 4px;
   padding: 8px 4px;
   text-align: center;
+  box-sizing: border-box;
 }
 
 .catalog-card-name {
@@ -351,14 +367,20 @@
   color: var(--accent-gold);
 }
 
-/* デッキエディタ */
+/* デッキエディタ（はみ出し防止・センタリング） */
 .deck-editor {
+  width: 100%;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   gap: 14px;
+  box-sizing: border-box;
 }
 
 .territory-grid {
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
   display: grid;
   grid-template-columns: repeat(9, 1fr);
   gap: 4px;
@@ -366,12 +388,14 @@
   padding: 8px;
   border: 1px solid var(--border-color);
   border-radius: 4px;
+  box-sizing: border-box;
 }
 
 .territory-cell {
   aspect-ratio: 1;
   background: #22222a;
   border: 1px solid #33333d;
+  border-radius: 2px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -379,6 +403,9 @@
   font-family: var(--font-serif);
   font-size: 12px;
   cursor: pointer;
+  box-sizing: border-box;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .territory-cell.selected {
@@ -393,10 +420,15 @@
 }
 
 .inventory-tray {
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  padding-bottom: 8px;
+  padding: 4px 4px 10px 4px;
+  box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
 }
 
 .tray-piece {
@@ -413,6 +445,7 @@
   font-family: var(--font-serif);
   font-size: 12px;
   cursor: pointer;
+  box-sizing: border-box;
 }
 
 /* プロフィール */
@@ -421,6 +454,7 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: 12px;
+  box-sizing: border-box;
 }
 
 .profile-input {
@@ -431,13 +465,14 @@
   border-radius: 4px;
   font-size: 13px;
   outline: none;
+  box-sizing: border-box;
 }
 
 .profile-input:focus {
   border-color: var(--accent-gold);
 }
 
-/* モーダル共通 */
+/* モーダル */
 .modal-overlay {
   position: absolute;
   top: 0;
@@ -449,6 +484,7 @@
   align-items: center;
   justify-content: center;
   z-index: 200;
+  box-sizing: border-box;
 }
 
 .modal-card {
@@ -461,4 +497,5 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  box-sizing: border-box;
 }
