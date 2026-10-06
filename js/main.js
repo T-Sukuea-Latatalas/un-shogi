@@ -39,7 +39,6 @@ export class UnShogiApp {
 
     this.sceneManager.startRenderLoop(() => this.update());
 
-    // フォント読み込み完了後に全駒のテクスチャを鮮明に再描画
     if (document.fonts) {
       document.fonts.ready.then(() => {
         for (const [, mesh] of this.pieceMeshes) {
@@ -157,7 +156,6 @@ export class UnShogiApp {
     const piece = this.gameState.getPiece(move.fromX, move.fromY);
     let isPromote = false;
 
-    // 成り判定
     const def = pieceRegistry.get(piece.name);
     if (def && def.promotesTo) {
       const enterEnemy = move.toY <= 2;
