@@ -15,6 +15,7 @@
   top: 0;
   left: 0;
   width: 100%;
+  max-width: 100%;
   height: 100%;
   overflow: hidden;
   pointer-events: none;
@@ -29,17 +30,18 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 10px 20px;
+  padding: 10px 16px;
   background: #25252b;
   color: var(--text-main);
   border: 1px solid var(--border-color);
   border-radius: 4px;
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 13px;
   letter-spacing: 0.05em;
   cursor: pointer;
   transition: background 0.2s, border-color 0.2s;
   box-sizing: border-box;
+  min-width: 0;
 }
 
 .btn:active {
@@ -69,6 +71,7 @@
   top: 0;
   left: 0;
   width: 100%;
+  max-width: 100%;
   height: 100%;
   background: #101012;
   display: flex;
@@ -78,6 +81,7 @@
   z-index: 100;
   transition: opacity 0.5s ease;
   box-sizing: border-box;
+  padding: 16px;
 }
 
 #start-screen.hidden {
@@ -87,26 +91,29 @@
 
 .title-logo {
   font-family: var(--font-serif);
-  font-size: 56px;
+  font-size: clamp(36px, 12vw, 56px);
   font-weight: 900;
   letter-spacing: 0.2em;
   color: var(--text-main);
   margin-bottom: 8px;
   text-indent: 0.2em;
+  text-align: center;
 }
 
 .subtitle {
-  font-size: 13px;
+  font-size: 12px;
   letter-spacing: 0.3em;
   color: var(--accent-gold);
-  margin-bottom: 60px;
+  margin-bottom: 48px;
+  text-align: center;
 }
 
 .tap-indicator {
-  font-size: 14px;
+  font-size: 13px;
   letter-spacing: 0.15em;
   color: var(--text-sub);
   animation: pulse 2s infinite ease-in-out;
+  text-align: center;
 }
 
 @keyframes pulse {
@@ -120,9 +127,8 @@
   top: 0;
   left: 0;
   width: 100%;
+  max-width: 100%;
   height: 100%;
-  max-width: 100vw;
-  max-height: 100vh;
   display: flex;
   flex-direction: column;
   z-index: 10;
@@ -136,8 +142,11 @@
 
 .top-bar {
   flex-shrink: 0;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   height: 52px;
-  padding: 0 16px;
+  padding: 0 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -150,12 +159,14 @@
 .player-info {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  min-width: 0;
 }
 
 .avatar-badge {
-  width: 32px;
-  height: 32px;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   border: 1px solid var(--accent-gold);
   background: #1e1e24;
@@ -163,29 +174,36 @@
   align-items: center;
   justify-content: center;
   font-family: var(--font-serif);
-  font-size: 14px;
+  font-size: 13px;
   color: var(--accent-gold);
 }
 
 .player-name {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
 }
 
 .currency-badge {
-  font-size: 13px;
+  flex-shrink: 0;
+  font-size: 12px;
   color: var(--accent-gold);
   letter-spacing: 0.05em;
   background: #1a1a20;
-  padding: 4px 10px;
+  padding: 4px 8px;
   border-radius: 12px;
   border: 1px solid #33333d;
+  white-space: nowrap;
 }
 
-/* メインコンテンツ領域 */
+/* メインコンテンツ領域（完全な幅・スクロール管理） */
 .tab-content-area {
   flex: 1;
   min-height: 0;
+  min-width: 0;
   width: 100%;
   max-width: 100%;
   overflow-x: hidden;
@@ -198,10 +216,11 @@
 .tab-pane {
   display: none;
   width: 100%;
-  max-width: 100%;
-  padding: 0 2px;
+  max-width: 480px;
+  min-width: 0;
+  margin: 0 auto;
+  padding: 0;
   box-sizing: border-box;
-  margin: 0;
 }
 
 .tab-pane.active {
@@ -211,7 +230,10 @@
 /* 下部タブバー */
 .bottom-nav {
   flex-shrink: 0;
-  height: 60px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  height: 58px;
   background: var(--panel-bg);
   border-top: 1px solid var(--border-color);
   display: flex;
@@ -221,18 +243,22 @@
 
 .nav-item {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   background: transparent;
   border: none;
   color: var(--text-sub);
-  font-size: 12px;
+  font-size: 11px;
   letter-spacing: 0.05em;
   cursor: pointer;
   transition: color 0.2s;
+  box-sizing: border-box;
+  padding: 0 4px;
+  white-space: nowrap;
 }
 
 .nav-item.active {
@@ -241,85 +267,108 @@
 }
 
 .section-card {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   background: var(--panel-bg);
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  padding: 16px;
-  margin-bottom: 16px;
+  padding: 12px;
+  margin-bottom: 12px;
   box-sizing: border-box;
 }
 
 .card-title {
-  font-size: 14px;
+  font-size: 13px;
   font-family: var(--font-serif);
   letter-spacing: 0.1em;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   color: var(--accent-gold);
   border-bottom: 1px solid #2e2e36;
-  padding-bottom: 6px;
+  padding-bottom: 4px;
 }
 
 .cpu-select-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .cpu-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   background: #202026;
-  padding: 12px;
+  padding: 10px;
   border: 1px solid var(--border-color);
   border-radius: 4px;
   box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
 }
 
 .cpu-meta {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
+  min-width: 0;
 }
 
 .cpu-name {
-  font-size: 14px;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .cpu-desc {
   font-size: 11px;
   color: var(--text-sub);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* サブナビゲーション */
 .sub-nav-bar {
+  width: 100%;
   display: flex;
   border-bottom: 1px solid var(--border-color);
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   box-sizing: border-box;
 }
 
 .sub-nav-btn {
   flex: 1;
-  padding: 8px 0;
+  min-width: 0;
+  padding: 6px 0;
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
   color: var(--text-sub);
-  font-size: 13px;
+  font-size: 12px;
   cursor: pointer;
+  text-align: center;
+  box-sizing: border-box;
 }
 
 .sub-nav-btn.active {
   color: var(--text-main);
   border-bottom-color: var(--accent-gold);
+  font-weight: 600;
 }
 
 /* ガチャ画面 */
 .gacha-panel {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   box-sizing: border-box;
 }
 
@@ -327,32 +376,35 @@
   background: #1a1a22;
   border: 1px solid var(--accent-gold);
   border-radius: 6px;
-  padding: 24px 16px;
+  padding: 20px 12px;
   text-align: center;
   box-sizing: border-box;
+  width: 100%;
 }
 
 .gacha-title {
   font-family: var(--font-serif);
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 900;
   letter-spacing: 0.1em;
   color: var(--text-main);
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .gacha-actions {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   justify-content: center;
-  margin-top: 18px;
+  margin-top: 14px;
 }
 
 /* 図鑑グリッド */
 .catalog-grid {
+  width: 100%;
+  max-width: 100%;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(68px, 1fr));
+  gap: 6px;
   box-sizing: border-box;
 }
 
@@ -360,49 +412,60 @@
   background: #222228;
   border: 1px solid var(--border-color);
   border-radius: 4px;
-  padding: 8px 4px;
+  padding: 6px 2px;
   text-align: center;
   box-sizing: border-box;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .catalog-card-name {
   font-family: var(--font-serif);
-  font-size: 14px;
-  margin-bottom: 4px;
+  font-size: 12px;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .catalog-card-rarity {
-  font-size: 10px;
+  font-size: 9px;
   letter-spacing: 0.05em;
   color: var(--accent-gold);
 }
 
-/* デッキエディタ */
+/* デッキエディタ（画面内完全収容） */
 .deck-editor {
   width: 100%;
   max-width: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   box-sizing: border-box;
   overflow: hidden;
 }
 
 .territory-grid {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   box-sizing: border-box;
   display: grid;
-  grid-template-columns: repeat(9, 1fr);
+  grid-template-columns: repeat(9, minmax(0, 1fr));
   gap: 1px;
   background: #18181e;
   padding: 2px;
   border: 1px solid var(--border-color);
   border-radius: 4px;
+  margin: 0 auto;
 }
 
 .territory-cell {
   aspect-ratio: 1 / 1;
+  width: 100%;
   min-width: 0;
+  min-height: 0;
   background: #22222a;
   border: 1px solid #33333d;
   border-radius: 1px;
@@ -411,12 +474,14 @@
   align-items: center;
   justify-content: center;
   font-family: var(--font-serif);
-  font-size: 11px;
+  font-size: clamp(8px, 2.5vw, 11px);
   cursor: pointer;
   box-sizing: border-box;
+  overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  overflow: hidden;
+  padding: 1px;
+  line-height: 1.1;
 }
 
 .territory-cell.selected {
@@ -432,20 +497,24 @@
 
 .inventory-tray {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   box-sizing: border-box;
   display: flex;
-  gap: 2px;
+  flex-wrap: nowrap;
+  gap: 4px;
   overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
-  padding: 4px 2px;
+  padding: 4px 1px 6px 1px;
   scroll-behavior: smooth;
 }
 
 .tray-piece {
-  flex: 0 0 44px;
-  width: 44px;
-  height: 44px;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
   background: #222228;
   border: 1px solid var(--border-color);
   border-radius: 3px;
@@ -457,6 +526,7 @@
   font-size: 10px;
   cursor: pointer;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 /* プロフィール */
@@ -464,19 +534,23 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  gap: 8px;
+  margin-bottom: 10px;
   box-sizing: border-box;
+  width: 100%;
 }
 
 .profile-input {
   background: #1c1c22;
   border: 1px solid var(--border-color);
   color: var(--text-main);
-  padding: 6px 10px;
+  padding: 4px 8px;
   border-radius: 4px;
-  font-size: 13px;
+  font-size: 12px;
   outline: none;
   box-sizing: border-box;
+  flex: 1;
+  max-width: 180px;
 }
 
 .profile-input:focus {
@@ -489,6 +563,7 @@
   top: 0;
   left: 0;
   width: 100%;
+  max-width: 100%;
   height: 100%;
   background: rgba(10, 10, 12, 0.85);
   display: flex;
@@ -496,17 +571,35 @@
   justify-content: center;
   z-index: 200;
   box-sizing: border-box;
+  padding: 16px;
 }
 
 .modal-card {
-  width: 90%;
-  max-width: 440px;
+  width: 100%;
+  max-width: 380px;
   background: #1b1b22;
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  padding: 20px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   box-sizing: border-box;
+}
+
+/* 極小画面（幅360px以下）用調整 */
+@media (max-width: 360px) {
+  .tab-content-area {
+    padding: 6px 4px;
+  }
+  .territory-cell {
+    font-size: 8px;
+  }
+  .tray-piece {
+    flex: 0 0 38px;
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    font-size: 9px;
+  }
 }
