@@ -182,7 +182,7 @@
   border: 1px solid #33333d;
 }
 
-/* メインコンテンツ領域（はみ出し防止・中央配置） */
+/* メインコンテンツ領域 */
 .tab-content-area {
   flex: 1;
   min-height: 0;
@@ -190,7 +190,7 @@
   max-width: 100%;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 14px 12px;
+  padding: 10px 8px;
   position: relative;
   box-sizing: border-box;
 }
@@ -198,7 +198,7 @@
 .tab-pane {
   display: none;
   width: 100%;
-  max-width: 500px;
+  max-width: 100%;
   margin: 0 auto;
   box-sizing: border-box;
 }
@@ -376,7 +376,7 @@
   color: var(--accent-gold);
 }
 
-/* デッキエディタ（画面内完全収容） */
+/* デッキエディタ */
 .deck-editor {
   width: 100%;
   max-width: 100%;
@@ -391,10 +391,10 @@
   max-width: 100%;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: repeat(9, minmax(0, 1fr));
-  gap: 3px;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 2px;
   background: #18181e;
-  padding: 6px;
+  padding: 4px;
   border: 1px solid var(--border-color);
   border-radius: 4px;
   box-sizing: border-box;
@@ -436,10 +436,10 @@
   max-width: 100%;
   margin: 0 auto;
   display: flex;
-  gap: 6px;
+  gap: 4px;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 4px 2px 8px 2px;
+  padding: 2px 1px 6px 1px;
   box-sizing: border-box;
   -webkit-overflow-scrolling: touch;
 }
