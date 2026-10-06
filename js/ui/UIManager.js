@@ -78,7 +78,7 @@ export class UIManager {
     const rankName = RatingSystem.getRankName(this.saveData.rating || 1500);
     const rateEl = document.getElementById('player-rate-info');
     if (rateEl) {
-      rateEl.textContent = `現在レート: ${this.saveData.rating || 1500} (${rankName})`;
+      rateEl.textContent = `レート ${this.saveData.rating || 1500} ${rankName}`;
     }
 
     const idEl = document.getElementById('player-id-display');
@@ -100,8 +100,8 @@ export class UIManager {
       row.className = 'cpu-item';
       row.innerHTML = `
         <div class="cpu-meta">
-          <span class="cpu-name">${opp.name} (${opp.rating})</span>
-          <span class="cpu-desc">${opp.title}</span>
+          <span class="cpu-name">${opp.name}</span>
+          <span class="cpu-desc">レート ${opp.rating}</span>
         </div>
         <button class="btn btn-primary" data-opp="${opp.id}">対局</button>
       `;
@@ -132,13 +132,10 @@ export class UIManager {
     container.innerHTML = `
       <div class="gacha-panel">
         <div class="gacha-banner">
-          <div class="gacha-title">百獣招来 登竜門</div>
-          <div style="font-size:12px; color:var(--text-sub); margin-bottom:12px;">
-            変則駒・大局将棋駒を獲得して布陣を強化
-          </div>
+          <div class="gacha-title">招来</div>
           <div class="gacha-actions">
-            <button class="btn" id="btn-gacha-single">単発 (100銭)</button>
-            <button class="btn btn-primary" id="btn-gacha-ten">十連 (1000銭)</button>
+            <button class="btn" id="btn-gacha-single">単発 100銭</button>
+            <button class="btn btn-primary" id="btn-gacha-ten">十連 1000銭</button>
           </div>
         </div>
       </div>
@@ -150,7 +147,7 @@ export class UIManager {
         alert(res.reason);
         return;
       }
-      this.saveData.coins = res.remainingCoins;
+      this.saveData = await SecureStorage.load();
       this.refreshHeader();
       this.showGachaModal(res.results);
     });
@@ -161,7 +158,7 @@ export class UIManager {
         alert(res.reason);
         return;
       }
-      this.saveData.coins = res.remainingCoins;
+      this.saveData = await SecureStorage.load();
       this.refreshHeader();
       this.showGachaModal(res.results);
     });
@@ -200,7 +197,6 @@ export class UIManager {
     const standardBoard = BoardConfig.create(BoardConfig.PRESETS.STANDARD_9X9);
     this.currentDeck = this.saveData.customDeck || DeckValidator.getSamplePreset(standardBoard, 0);
 
-    // 王将が (4, 8) にない場合は強制配置
     if (!this.currentDeck.some(p => p.x === 4 && p.y === 8 && p.pieceName === '王将')) {
       this.currentDeck = this.currentDeck.filter(p => !(p.x === 4 && p.y === 8));
       this.currentDeck.push({ pieceName: '王将', x: 4, y: 8 });
@@ -208,11 +204,11 @@ export class UIManager {
 
     container.innerHTML = `
       <div class="deck-editor">
-        <div class="card-title">自陣配置 (手前3段)</div>
+        <div class="card-title">自陣配置</div>
         <div class="territory-grid" id="territory-grid"></div>
         <div class="card-title">所持駒一覧</div>
         <div class="inventory-tray" id="inventory-tray"></div>
-        <button class="btn btn-primary" id="btn-save-deck" style="width:100%; margin-top:8px;">布陣を保存</button>
+        <button class="btn btn-primary" id="btn-save-deck" style="width:100%; margin-top:8px;">布陣保存</button>
         <div id="deck-msg" style="font-size:12px; min-height:16px; margin-top:4px;"></div>
       </div>
     `;
@@ -230,7 +226,7 @@ export class UIManager {
           const isKingFixed = (x === 4 && y === 8);
           if (isKingFixed) {
             cell.classList.add('locked-royal');
-            cell.innerHTML = `<div>王将</div><div style="font-size:9px; color:var(--accent-gold);">固定</div>`;
+            cell.innerHTML = `<div>王将</div><div style="font-size:8px; color:var(--accent-gold);">固定</div>`;
           } else {
             const p = this.currentDeck.find(item => item.x === x && item.y === y);
             if (p) cell.textContent = p.pieceName.slice(0, 2);
@@ -258,16 +254,28 @@ export class UIManager {
     trayEl.innerHTML = '';
     for (const [name, count] of Object.entries(this.saveData.inventory || {})) {
       if (count <= 0) continue;
-      // 王将・玉将はデッキ上で固定のためトレイから除外
       if (name === '王将' || name === '玉将') continue;
 
       const pEl = document.createElement('div');
       pEl.className = 'tray-piece';
-      pEl.innerHTML = `<div>${name.slice(0, 2)}</div><div style="font-size:10px; color:var(--text-sub);">x${count}</div>`;
+      pEl.innerHTML = `<div>${name.slice(0, 2)}</div><div style="font-size:9px; color:var(--text-sub);">x${count}</div>`;
 
       pEl.addEventListener('click', () => {
         if (!this.selectedTerritoryCell) return;
         if (this.selectedTerritoryCell.x === 4 && this.selectedTerritoryCell.y === 8) return;
+
+        // 所持数上限チェック
+        const alreadyPlaced = this.currentDeck.filter(item => item.pieceName === name).length;
+        const availableCount = count - alreadyPlaced;
+
+        if (availableCount <= 0) {
+          const msgEl = container.querySelector('#deck-msg');
+          if (msgEl) {
+            msgEl.style.color = 'var(--accent-red)';
+            msgEl.textContent = '所持数上限です';
+          }
+          return;
+        }
 
         this.currentDeck = this.currentDeck.filter(
           item => !(item.x === this.selectedTerritoryCell.x && item.y === this.selectedTerritoryCell.y)
@@ -312,7 +320,7 @@ export class UIManager {
       card.innerHTML = `
         <div class="catalog-card-name">${item.name.slice(0, 2)}</div>
         <div class="catalog-card-rarity">${item.rarity}</div>
-        <div style="font-size:10px; color:var(--text-sub);">所持: ${item.ownedCount}</div>
+        <div style="font-size:9px; color:var(--text-sub);">所持 ${item.ownedCount}</div>
       `;
       grid.appendChild(card);
     }
@@ -333,7 +341,7 @@ export class UIManager {
         <div class="modal-card" style="text-align:center;">
           <div class="card-title">成の選択</div>
           <div style="font-size:15px; margin:12px 0;">
-            ${pieceName} を <strong>${promotesTo}</strong> に成りますか？
+            ${pieceName} を ${promotesTo} に成りますか
           </div>
           <div style="display:flex; gap:12px; justify-content:center;">
             <button class="btn btn-primary" id="btn-promote-yes" style="flex:1;">成る</button>

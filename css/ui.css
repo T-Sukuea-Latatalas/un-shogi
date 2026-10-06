@@ -65,6 +65,14 @@
   border-color: var(--accent-red);
 }
 
+/* 投了ボタンコンテナ */
+#resign-container {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 50;
+}
+
 /* スタート画面 */
 #start-screen {
   position: absolute;
@@ -199,7 +207,7 @@
   white-space: nowrap;
 }
 
-/* メインコンテンツ領域（完全な幅・スクロール管理） */
+/* メインコンテンツ領域 */
 .tab-content-area {
   flex: 1;
   min-height: 0;
@@ -434,7 +442,7 @@
   color: var(--accent-gold);
 }
 
-/* デッキエディタ（画面内完全収容） */
+/* デッキエディタ */
 .deck-editor {
   width: 100%;
   max-width: 100%;
@@ -587,7 +595,6 @@
   box-sizing: border-box;
 }
 
-/* 極小画面（幅360px以下）用調整 */
 @media (max-width: 360px) {
   .tab-content-area {
     padding: 6px 4px;

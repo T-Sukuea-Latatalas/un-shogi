@@ -93,6 +93,54 @@ export class UnShogiApp {
     const defaultDeck = DeckValidator.getSamplePreset(this.boardConfig, GameState.TURN.SENTE);
     this.spawnDeck(playerDeck || defaultDeck, GameState.TURN.SENTE);
     this.spawnDeck(this.currentOpponent.deck, GameState.TURN.GOTE);
+
+    this.showGameUI();
+  }
+
+  showGameUI() {
+    const uiLayer = document.getElementById('ui-layer');
+    const resignContainer = document.createElement('div');
+    resignContainer.id = 'resign-container';
+    resignContainer.className = 'interactive';
+    resignContainer.innerHTML = `
+      <button class="btn btn-danger" id="btn-resign">投了</button>
+    `;
+
+    uiLayer.appendChild(resignContainer);
+
+    document.getElementById('btn-resign').addEventListener('click', () => {
+      this.promptResignation();
+    });
+  }
+
+  async promptResignation() {
+    if (this.isAnimating || this.isAiThinking || this.gameState.winner !== null) return;
+
+    const modalContainer = document.getElementById('modal-container');
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay interactive';
+
+    overlay.innerHTML = `
+      <div class="modal-card" style="text-align:center;">
+        <div class="card-title">投了確認</div>
+        <div style="font-size:14px; margin:12px 0;">投了しますか</div>
+        <div style="display:flex; gap:12px; justify-content:center;">
+          <button class="btn btn-danger" id="btn-resign-yes" style="flex:1;">投了</button>
+          <button class="btn" id="btn-resign-no" style="flex:1;">対局続行</button>
+        </div>
+      </div>
+    `;
+
+    overlay.querySelector('#btn-resign-yes').addEventListener('click', async () => {
+      overlay.remove();
+      await this.handleGameOver(GameState.TURN.GOTE);
+    });
+
+    overlay.querySelector('#btn-resign-no').addEventListener('click', () => {
+      overlay.remove();
+    });
+
+    modalContainer.appendChild(overlay);
   }
 
   spawnDeck(deckItems, owner) {
@@ -278,17 +326,17 @@ export class UnShogiApp {
     overlay.className = 'modal-overlay interactive';
 
     const rankName = RatingSystem.getRankName(newRating);
-    const title = isPlayerWin ? '勝 礼' : '敗 礼';
+    const title = isPlayerWin ? '勝礼' : '敗礼';
     const color = isPlayerWin ? 'var(--accent-gold)' : 'var(--text-sub)';
 
     overlay.innerHTML = `
       <div class="modal-card" style="text-align:center;">
         <div style="font-family:var(--font-serif); font-size:32px; font-weight:900; color:${color};">${title}</div>
         <div style="font-size:14px; margin:8px 0;">
-          変動: ${rateDelta >= 0 ? '+' : ''}${rateDelta} (新レート: ${newRating})
+          変動 ${rateDelta >= 0 ? '+' : ''}${rateDelta} 新レート ${newRating}
         </div>
         <div style="font-size:12px; color:var(--text-sub); margin-bottom:16px;">
-          段級位: ${rankName}
+          段級位 ${rankName}
         </div>
         <button class="btn btn-primary" id="btn-return-menu">本陣へ戻る</button>
       </div>
@@ -298,6 +346,7 @@ export class UnShogiApp {
       overlay.remove();
       this.clearBoardScene();
       document.getElementById('menu-screen').classList.remove('hidden');
+      this.uiManager.saveData = saveData;
       this.uiManager.refreshHeader();
     });
 
@@ -315,6 +364,9 @@ export class UnShogiApp {
       this.sceneManager.scene.remove(this.boardGroup);
       this.boardGroup = null;
     }
+
+    const resignContainer = document.getElementById('resign-container');
+    if (resignContainer) resignContainer.remove();
 
     this.clearSelection();
   }
