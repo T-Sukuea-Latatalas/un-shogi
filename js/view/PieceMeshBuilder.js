@@ -6,7 +6,7 @@ export class PieceMeshBuilder {
    */
   static createPieceGeometry() {
     const shape = new THREE.Shape();
-    // 将棋駒の五角形輪郭
+    // 駒の五角形輪郭
     shape.moveTo(-0.44, 0);
     shape.lineTo(0.44, 0);
     shape.lineTo(0.50, 0.95);
@@ -28,7 +28,7 @@ export class PieceMeshBuilder {
   }
 
   /**
-   * 駒名を描画したCanvasTextureを生成
+   * 駒名を描画した高解像度CanvasTextureを生成
    * @param {string} text 駒名
    * @param {boolean} isPromoted 成駒フラグ（赤文字）
    * @returns {THREE.CanvasTexture}
@@ -39,28 +39,26 @@ export class PieceMeshBuilder {
     canvas.height = 512;
     const ctx = canvas.getContext('2d');
 
-    // 透過背景
     ctx.clearRect(0, 0, 512, 512);
 
-    // 文字色の設定（通常: 漆黒, 成駒: 朱赤）
-    ctx.fillStyle = isPromoted ? '#a62424' : '#141312';
+    ctx.fillStyle = isPromoted ? '#b32424' : '#141312';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
     const fontFamily = '"Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", "MS Mincho", serif';
 
     if (text.length === 1) {
-      ctx.font = `900 280px ${fontFamily}`;
+      ctx.font = `900 290px ${fontFamily}`;
       ctx.fillText(text, 256, 256);
     } else if (text.length === 2) {
-      ctx.font = `900 180px ${fontFamily}`;
-      // 2文字を縦書き風に上下配置
+      ctx.font = `900 185px ${fontFamily}`;
+      // 2文字を五角形の中心バランスに合わせて上下配置
       ctx.fillText(text[0], 256, 160);
-      ctx.fillText(text[1], 256, 350);
+      ctx.fillText(text[1], 256, 352);
     } else {
-      ctx.font = `900 130px ${fontFamily}`;
+      ctx.font = `900 135px ${fontFamily}`;
       ctx.fillText(text.slice(0, 2), 256, 170);
-      ctx.fillText(text.slice(2), 256, 340);
+      ctx.fillText(text.slice(2), 256, 342);
     }
 
     const texture = new THREE.CanvasTexture(canvas);
@@ -69,7 +67,7 @@ export class PieceMeshBuilder {
   }
 
   /**
-   * 駒メッシュ（土台ボディ + 上面テキストプレート）を構築
+   * 駒メッシュ（土台ボディ + 最適化UVテキストプレート）を構築
    * @param {string} pieceName 駒名
    * @param {number} owner 0: 先手, 1: 後手
    * @param {boolean} isPromoted 成駒フラグ
@@ -85,8 +83,8 @@ export class PieceMeshBuilder {
 
     const pieceMesh = new THREE.Mesh(bodyGeo, bodyMat);
 
-    // 上面テキストプレートの生成（UVが正規化された平面）
-    const labelGeo = new THREE.PlaneGeometry(0.88, 1.15);
+    // 駒の上面に重ねるテキストプレート（PlaneGeometry）
+    const labelGeo = new THREE.PlaneGeometry(0.88, 1.16);
     labelGeo.rotateX(-Math.PI / 2);
 
     const labelTex = this.createTexture(pieceName, isPromoted);
@@ -98,8 +96,9 @@ export class PieceMeshBuilder {
     });
 
     const labelMesh = new THREE.Mesh(labelGeo, labelMat);
-    // 駒の上面（厚み0.28の半分 + わずかなオフセット）に密着配置
-    labelMesh.position.set(0, 0.145, 0.02);
+
+    // 駒の厚み0.28の上面（Y = +0.15）および五角形重心（Z = +0.02）に配置
+    labelMesh.position.set(0, 0.15, 0.02);
     labelMesh.name = 'pieceLabel';
 
     pieceMesh.add(labelMesh);
