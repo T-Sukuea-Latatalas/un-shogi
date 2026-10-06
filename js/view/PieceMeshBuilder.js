@@ -6,7 +6,6 @@ export class PieceMeshBuilder {
    */
   static createPieceGeometry() {
     const shape = new THREE.Shape();
-    // 将棋駒の五角形輪郭
     shape.moveTo(-0.44, 0);
     shape.lineTo(0.44, 0);
     shape.lineTo(0.50, 0.95);
@@ -39,10 +38,8 @@ export class PieceMeshBuilder {
     canvas.height = 512;
     const ctx = canvas.getContext('2d');
 
-    // 透過背景
     ctx.clearRect(0, 0, 512, 512);
 
-    // 文字色の設定（通常: 漆黒, 成駒: 朱赤）
     ctx.fillStyle = isPromoted ? '#b32424' : '#141312';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -54,7 +51,6 @@ export class PieceMeshBuilder {
       ctx.fillText(text, 256, 256);
     } else if (text.length === 2) {
       ctx.font = `900 180px ${fontFamily}`;
-      // 五角形の上下バランスに合わせて中央配置
       ctx.fillText(text[0], 256, 165);
       ctx.fillText(text[1], 256, 350);
     } else {
@@ -103,9 +99,10 @@ export class PieceMeshBuilder {
 
     const labelMesh = new THREE.Mesh(labelGeo, labelMat);
 
-    // 駒上面（Y=0.175）および五角形中央（Z=0.05）に確実に配置
-    labelMesh.position.set(0, 0.175, 0.05);
+    // 駒の上面（Y=0.178）および五角形中央（Z=0.05）に確実に配置
+    labelMesh.position.set(0, 0.178, 0.05);
     labelMesh.name = 'pieceLabel';
+    labelMesh.renderOrder = 1;
 
     pieceMesh.add(labelMesh);
 
